@@ -1855,7 +1855,7 @@ function spriteKeyFor(p, walkPh) {
 function drawSpriteOf(id, key, flash) {
   const set = SPR[id];
   if (!set) return false;
-  const k = [key, key && key.startsWith("walk") ? "idle" : null, "idle"].find((x) => x && set[x] && IMG[`spr_${id}_${x}`]);
+  const k = [key, key === "ending" || key === "fatality" ? "win" : null, key && key.startsWith("walk") ? "idle" : null, "idle"].find((x) => x && set[x] && IMG[`spr_${id}_${x}`]);
   if (!k) return false;
   const s = set[k], img = IMG[`spr_${id}_${k}`];
   ctx.save(); ctx.imageSmoothingEnabled = false;
@@ -2862,7 +2862,7 @@ function drawEnding() {
   menuBg();
   const d = skinned(D.fighters[G.ladder.pid], skinOf(G.ladder.pid));
   ctx.save(); ctx.translate(W / 2, 470); ctx.scale(1.6, 1.6);
-  drawDummy(d, { cr: 0, lean: 0, arms: "up", legs: "stand", lying: 0, bob: Math.sin(G.time * 6) * 3 }, false, 0);
+  drawDummy(d, { key: "ending", cr: 0, lean: 0, arms: "up", legs: "stand", lying: 0, bob: Math.sin(G.time * 6) * 3 }, false, 0);
   ctx.restore();
   bigText(D.texts.champion, 100, 80, GOLD);
   ctx.font = `24px ${FONT}`; ctx.textAlign = "center"; ctx.fillStyle = WHITE;

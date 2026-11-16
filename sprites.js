@@ -231,12 +231,17 @@ window.SPRITES = {
   },
   "punch_0": {
    "src": "assets/sprites/clinton/punch_0.png",
-   "ax": 79,
+   "ax": 78,
    "ay": 281
   },
   "punch": {
    "src": "assets/sprites/clinton/punch.png",
    "ax": 80,
+   "ay": 281
+  },
+  "hook": {
+   "src": "assets/sprites/clinton/hook.png",
+   "ax": 92,
    "ay": 281
   },
   "counter": {
@@ -331,28 +336,48 @@ window.SPRITES = {
   },
   "sp_notes": {
    "src": "assets/sprites/clinton/sp_notes.png",
-   "ax": 90,
-   "ay": 261
+   "ax": 115,
+   "ay": 288
   },
   "special": {
    "src": "assets/sprites/clinton/special.png",
-   "ax": 90,
-   "ay": 261
+   "ax": 115,
+   "ay": 288
+  },
+  "super": {
+   "src": "assets/sprites/clinton/super.png",
+   "ax": 78,
+   "ay": 292
   },
   "sp_jog": {
    "src": "assets/sprites/clinton/sp_jog.png",
-   "ax": 90,
-   "ay": 290
+   "ax": 116,
+   "ay": 286
+  },
+  "sp_jog_2": {
+   "src": "assets/sprites/clinton/sp_jog_2.png",
+   "ax": 109,
+   "ay": 272
   },
   "sp_townhall": {
    "src": "assets/sprites/clinton/sp_townhall.png",
    "ax": 100,
    "ay": 287
   },
-  "super": {
-   "src": "assets/sprites/clinton/super.png",
-   "ax": 148,
-   "ay": 303
+  "item_sax": {
+   "src": "assets/sprites/clinton/item_sax.png",
+   "ax": 47,
+   "ay": 82
+  },
+  "fatality": {
+   "src": "assets/sprites/clinton/fatality.png",
+   "ax": 102,
+   "ay": 236
+  },
+  "ending": {
+   "src": "assets/sprites/clinton/ending.png",
+   "ax": 70,
+   "ay": 299
   }
  }
 };

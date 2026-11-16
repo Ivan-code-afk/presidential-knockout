@@ -48,11 +48,9 @@ OWN = {
         "item_brush": ("12", 2, "item"),
     },
     "clinton": {
-        # листы 08 и 09 пришли с позами Буша — временно берём что подходит, ждём правильные
-        "hook": None,
-        "sp_notes": ("10", 0, "feet"), "special": ("10", 0, "feet"),
-        "sp_jog": ("12", 0, "feet"), "sp_townhall": ("12", 2, "feet"),
-        "super": ("08", 2, "feet"),
+        "sp_notes": ("08", 0, "feet"), "special": ("08", 0, "feet"), "super": ("08", 1, "feet"),
+        "sp_jog": ("08", 2, "feet"), "sp_jog_2": ("12", 1, "feet"), "sp_townhall": ("12", 2, "feet"),
+        "item_sax": ("09", 0, "item"), "fatality": ("09", 1, "feet"), "ending": ("09", 2, "feet"),
     },
 }
 MAP = {}
@@ -62,7 +60,7 @@ for _fid, _own in OWN.items():
         if _v is None: MAP[_fid].pop(_k, None)
         else: MAP[_fid][_k] = _v
 # если в листе есть особая фигура для масштаба — можно переопределить для бойца
-REF_OVERRIDE = {"bush": {"00": (0, 1.08)}, "clinton": {"12": (2, 1.02), "10": (0, 0.93)}}
+REF_OVERRIDE = {"bush": {"00": (0, 1.08)}, "clinton": {"12": (2, 1.02), "10": (0, 0.93), "08": (1, 1.04), "09": (2, 1.06)}}
 
 
 def mask_of(a):
