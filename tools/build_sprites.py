@@ -52,6 +52,12 @@ OWN = {
         "sp_jog": ("08", 2, "feet"), "sp_jog_2": ("12", 1, "feet"), "sp_townhall": ("12", 2, "feet"),
         "item_sax": ("09", 0, "item"), "fatality": ("09", 1, "feet"), "ending": ("09", 2, "feet"),
     },
+    "trump": {
+        "hook": None,  # третья поза листа 3 бьёт назад — ждём исправленный лист
+        "sp_fired": ("08", 0, "feet"), "special": ("08", 0, "feet"), "super": ("08", 1, "feet"), "super_2": ("08", 2, "feet"),
+        "item_clipper": ("09", 0, "item"), "item_chair": ("09", 1, "item"), "fatality": ("09", 2, "feet"),
+        "sp_deal": ("12", 0, "feet"), "sp_bigleague_0": ("12", 1, "feet"), "sp_bigleague": ("12", 2, "feet"),
+    },
 }
 MAP = {}
 for _fid, _own in OWN.items():
@@ -60,7 +66,8 @@ for _fid, _own in OWN.items():
         if _v is None: MAP[_fid].pop(_k, None)
         else: MAP[_fid][_k] = _v
 # если в листе есть особая фигура для масштаба — можно переопределить для бойца
-REF_OVERRIDE = {"bush": {"00": (0, 1.08)}, "clinton": {"12": (2, 1.02), "10": (0, 0.93), "08": (1, 1.04), "09": (2, 1.06)}}
+REF_OVERRIDE = {"bush": {"00": (0, 1.08)}, "clinton": {"12": (2, 1.02), "10": (0, 0.93), "08": (1, 1.04), "09": (2, 1.06)},
+                "trump": {"10": "=06", "08": (0, 1.02), "09": (2, 1.02), "12": (1, 0.98)}}
 
 
 def mask_of(a):
@@ -137,14 +144,19 @@ def build(src_dir):
             a = np.asarray(Image.open(fn).convert("RGB"))
             cache[num] = (a, components(a))
         # масштаб каждого листа: по опорной фигуре или по высоте листа
+        later = []
         for num, (a, comps) in cache.items():
             ref = REF_OVERRIDE.get(fid, {}).get(num) or COMMON_REF.get(num, (None, 0.394))
+            if isinstance(ref, str):
+                later.append((num, ref[1:])); continue
             idx, k = ref
             if idx is not None and idx < len(comps):
                 h = comps[idx][1][0].stop - comps[idx][1][0].start
                 scales[num] = STAND_H * k / h
             else:
                 scales[num] = (STAND_H / 665) * (a.shape[0] / 724) * (724 / a.shape[0]) if a.shape[0] == 724 else STAND_H / 760
+        for num, other in later:
+            scales[num] = scales.get(other, STAND_H / 665)
         out = {}
         for pose, (num, idx, kind) in poses.items():
             if num not in cache or idx >= len(cache[num][1]):

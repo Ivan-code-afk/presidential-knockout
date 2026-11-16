@@ -379,5 +379,192 @@ window.SPRITES = {
    "ax": 70,
    "ay": 299
   }
+ },
+ "trump": {
+  "idle": {
+   "src": "assets/sprites/trump/idle.png",
+   "ax": 96,
+   "ay": 281
+  },
+  "crouch": {
+   "src": "assets/sprites/trump/crouch.png",
+   "ax": 96,
+   "ay": 210
+  },
+  "jump": {
+   "src": "assets/sprites/trump/jump.png",
+   "ax": 78,
+   "ay": 221
+  },
+  "walk_1": {
+   "src": "assets/sprites/trump/walk_1.png",
+   "ax": 111,
+   "ay": 281
+  },
+  "walk_2": {
+   "src": "assets/sprites/trump/walk_2.png",
+   "ax": 62,
+   "ay": 281
+  },
+  "walk_3": {
+   "src": "assets/sprites/trump/walk_3.png",
+   "ax": 115,
+   "ay": 280
+  },
+  "walk_4": {
+   "src": "assets/sprites/trump/walk_4.png",
+   "ax": 63,
+   "ay": 281
+  },
+  "punch_0": {
+   "src": "assets/sprites/trump/punch_0.png",
+   "ax": 96,
+   "ay": 281
+  },
+  "punch": {
+   "src": "assets/sprites/trump/punch.png",
+   "ax": 104,
+   "ay": 281
+  },
+  "counter": {
+   "src": "assets/sprites/trump/counter.png",
+   "ax": 118,
+   "ay": 281
+  },
+  "kick": {
+   "src": "assets/sprites/trump/kick.png",
+   "ax": 42,
+   "ay": 281
+  },
+  "akick": {
+   "src": "assets/sprites/trump/akick.png",
+   "ax": 128,
+   "ay": 256
+  },
+  "cpunch": {
+   "src": "assets/sprites/trump/cpunch.png",
+   "ax": 104,
+   "ay": 208
+  },
+  "ckick": {
+   "src": "assets/sprites/trump/ckick.png",
+   "ax": 104,
+   "ay": 208
+  },
+  "super_0": {
+   "src": "assets/sprites/trump/super_0.png",
+   "ax": 106,
+   "ay": 271
+  },
+  "block": {
+   "src": "assets/sprites/trump/block.png",
+   "ax": 98,
+   "ay": 281
+  },
+  "crouch_block": {
+   "src": "assets/sprites/trump/crouch_block.png",
+   "ax": 98,
+   "ay": 215
+  },
+  "hurt": {
+   "src": "assets/sprites/trump/hurt.png",
+   "ax": 123,
+   "ay": 284
+  },
+  "fall": {
+   "src": "assets/sprites/trump/fall.png",
+   "ax": 142,
+   "ay": 217
+  },
+  "ko": {
+   "src": "assets/sprites/trump/ko.png",
+   "ax": 167,
+   "ay": 100
+  },
+  "getup": {
+   "src": "assets/sprites/trump/getup.png",
+   "ax": 108,
+   "ay": 207
+  },
+  "win": {
+   "src": "assets/sprites/trump/win.png",
+   "ax": 86,
+   "ay": 298
+  },
+  "lose": {
+   "src": "assets/sprites/trump/lose.png",
+   "ax": 80,
+   "ay": 232
+  },
+  "portrait": {
+   "src": "assets/sprites/trump/portrait.png",
+   "ax": 0,
+   "ay": 0
+  },
+  "throw_0": {
+   "src": "assets/sprites/trump/throw_0.png",
+   "ax": 122,
+   "ay": 289
+  },
+  "throw": {
+   "src": "assets/sprites/trump/throw.png",
+   "ax": 130,
+   "ay": 292
+  },
+  "thrown": {
+   "src": "assets/sprites/trump/thrown.png",
+   "ax": 101,
+   "ay": 309
+  },
+  "sp_fired": {
+   "src": "assets/sprites/trump/sp_fired.png",
+   "ax": 101,
+   "ay": 287
+  },
+  "special": {
+   "src": "assets/sprites/trump/special.png",
+   "ax": 101,
+   "ay": 287
+  },
+  "super": {
+   "src": "assets/sprites/trump/super.png",
+   "ax": 139,
+   "ay": 281
+  },
+  "super_2": {
+   "src": "assets/sprites/trump/super_2.png",
+   "ax": 132,
+   "ay": 263
+  },
+  "item_clipper": {
+   "src": "assets/sprites/trump/item_clipper.png",
+   "ax": 139,
+   "ay": 49
+  },
+  "item_chair": {
+   "src": "assets/sprites/trump/item_chair.png",
+   "ax": 111,
+   "ay": 130
+  },
+  "fatality": {
+   "src": "assets/sprites/trump/fatality.png",
+   "ax": 88,
+   "ay": 287
+  },
+  "sp_deal": {
+   "src": "assets/sprites/trump/sp_deal.png",
+   "ax": 124,
+   "ay": 260
+  },
+  "sp_bigleague_0": {
+   "src": "assets/sprites/trump/sp_bigleague_0.png",
+   "ax": 113,
+   "ay": 275
+  },
+  "sp_bigleague": {
+   "src": "assets/sprites/trump/sp_bigleague.png",
+   "ax": 128,
+   "ay": 260
+  }
  }
 };
