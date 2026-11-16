@@ -571,5 +571,192 @@ window.SPRITES = {
    "ax": 128,
    "ay": 260
   }
+ },
+ "obama": {
+  "idle": {
+   "src": "assets/sprites/obama/idle.png",
+   "ax": 64,
+   "ay": 282
+  },
+  "crouch": {
+   "src": "assets/sprites/obama/crouch.png",
+   "ax": 54,
+   "ay": 183
+  },
+  "jump": {
+   "src": "assets/sprites/obama/jump.png",
+   "ax": 54,
+   "ay": 174
+  },
+  "walk_1": {
+   "src": "assets/sprites/obama/walk_1.png",
+   "ax": 91,
+   "ay": 281
+  },
+  "walk_2": {
+   "src": "assets/sprites/obama/walk_2.png",
+   "ax": 50,
+   "ay": 282
+  },
+  "walk_3": {
+   "src": "assets/sprites/obama/walk_3.png",
+   "ax": 92,
+   "ay": 281
+  },
+  "walk_4": {
+   "src": "assets/sprites/obama/walk_4.png",
+   "ax": 48,
+   "ay": 281
+  },
+  "punch_0": {
+   "src": "assets/sprites/obama/punch_0.png",
+   "ax": 72,
+   "ay": 281
+  },
+  "punch": {
+   "src": "assets/sprites/obama/punch.png",
+   "ax": 72,
+   "ay": 281
+  },
+  "counter": {
+   "src": "assets/sprites/obama/counter.png",
+   "ax": 102,
+   "ay": 281
+  },
+  "kick": {
+   "src": "assets/sprites/obama/kick.png",
+   "ax": 43,
+   "ay": 281
+  },
+  "akick": {
+   "src": "assets/sprites/obama/akick.png",
+   "ax": 115,
+   "ay": 243
+  },
+  "cpunch": {
+   "src": "assets/sprites/obama/cpunch.png",
+   "ax": 74,
+   "ay": 192
+  },
+  "ckick": {
+   "src": "assets/sprites/obama/ckick.png",
+   "ax": 74,
+   "ay": 192
+  },
+  "super_0": {
+   "src": "assets/sprites/obama/super_0.png",
+   "ax": 87,
+   "ay": 274
+  },
+  "block": {
+   "src": "assets/sprites/obama/block.png",
+   "ax": 87,
+   "ay": 281
+  },
+  "crouch_block": {
+   "src": "assets/sprites/obama/crouch_block.png",
+   "ax": 80,
+   "ay": 203
+  },
+  "hurt": {
+   "src": "assets/sprites/obama/hurt.png",
+   "ax": 134,
+   "ay": 281
+  },
+  "fall": {
+   "src": "assets/sprites/obama/fall.png",
+   "ax": 134,
+   "ay": 204
+  },
+  "ko": {
+   "src": "assets/sprites/obama/ko.png",
+   "ax": 162,
+   "ay": 66
+  },
+  "getup": {
+   "src": "assets/sprites/obama/getup.png",
+   "ax": 93,
+   "ay": 210
+  },
+  "win": {
+   "src": "assets/sprites/obama/win.png",
+   "ax": 74,
+   "ay": 312
+  },
+  "lose": {
+   "src": "assets/sprites/obama/lose.png",
+   "ax": 68,
+   "ay": 227
+  },
+  "portrait": {
+   "src": "assets/sprites/obama/portrait.png",
+   "ax": 0,
+   "ay": 0
+  },
+  "throw_0": {
+   "src": "assets/sprites/obama/throw_0.png",
+   "ax": 100,
+   "ay": 283
+  },
+  "throw": {
+   "src": "assets/sprites/obama/throw.png",
+   "ax": 128,
+   "ay": 304
+  },
+  "thrown": {
+   "src": "assets/sprites/obama/thrown.png",
+   "ax": 82,
+   "ay": 309
+  },
+  "sp_ball_0": {
+   "src": "assets/sprites/obama/sp_ball_0.png",
+   "ax": 56,
+   "ay": 282
+  },
+  "sp_ball": {
+   "src": "assets/sprites/obama/sp_ball.png",
+   "ax": 84,
+   "ay": 304
+  },
+  "special": {
+   "src": "assets/sprites/obama/special.png",
+   "ax": 84,
+   "ay": 304
+  },
+  "cool": {
+   "src": "assets/sprites/obama/cool.png",
+   "ax": 54,
+   "ay": 303
+  },
+  "item_ball": {
+   "src": "assets/sprites/obama/item_ball.png",
+   "ax": 104,
+   "ay": 108
+  },
+  "item_mic": {
+   "src": "assets/sprites/obama/item_mic.png",
+   "ax": 51,
+   "ay": 125
+  },
+  "fatality": {
+   "src": "assets/sprites/obama/fatality.png",
+   "ax": 154,
+   "ay": 303
+  },
+  "sp_fastbreak": {
+   "src": "assets/sprites/obama/sp_fastbreak.png",
+   "ax": 163,
+   "ay": 206
+  },
+  "sp_yeswecan": {
+   "src": "assets/sprites/obama/sp_yeswecan.png",
+   "ax": 61,
+   "ay": 365
+  },
+  "super": {
+   "src": "assets/sprites/obama/super.png",
+   "ax": 88,
+   "ay": 318
+  }
  }
 };

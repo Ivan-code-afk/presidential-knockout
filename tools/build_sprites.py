@@ -57,6 +57,12 @@ OWN = {
         "item_clipper": ("09", 0, "item"), "item_chair": ("09", 1, "item"), "fatality": ("09", 2, "feet"),
         "sp_deal": ("12", 0, "feet"), "sp_bigleague_0": ("12", 1, "feet"), "sp_bigleague": ("12", 2, "feet"),
     },
+    "obama": {
+        "hook": None,  # третья поза листа 3 бьёт назад — ждём исправленный лист
+        "sp_ball_0": ("08", 0, "feet"), "sp_ball": ("08", 1, "air"), "special": ("08", 1, "air"), "cool": ("08", 2, "feet"),
+        "item_ball": ("09", 0, "item"), "item_mic": ("09", 1, "item"), "fatality": ("09", 2, "feet"),
+        "sp_fastbreak": ("12", 0, "feet"), "sp_yeswecan": ("12", 1, "feet"), "super": ("12", 2, "air"),
+    },
 }
 MAP = {}
 for _fid, _own in OWN.items():
@@ -66,7 +72,8 @@ for _fid, _own in OWN.items():
         else: MAP[_fid][_k] = _v
 # если в листе есть особая фигура для масштаба — можно переопределить для бойца
 REF_OVERRIDE = {"bush": {"00": (0, 1.08)}, "clinton": {"12": (2, 1.02), "10": (0, 0.93), "08": (1, 1.04), "09": (2, 1.06)},
-                "trump": {"10": "=06", "08": (0, 1.02), "09": (2, 1.02), "12": (1, 0.98)}}
+                "trump": {"10": "=06", "08": (0, 1.02), "09": (2, 1.02), "12": (1, 0.98)},
+                "obama": {"10": "=06", "08": (2, 1.08), "09": (2, 1.08), "12": (1, 1.3)}}
 
 
 def mask_of(a):
