@@ -194,10 +194,32 @@ const G = {
   sel: { step: 0, cur: 0, picks: [] }, arenaSel: 0,
   ladder: null, screenT: 0, msg: null,
   bossUnlocked: store.get("boss", false),
+  impeachUnlocked: store.get("impeach", false),
+  clears: store.get("clears", {}),   // лучший пройденный уровень аркады для каждого бойца
+  loseStreak: 0,
 };
 let F = null; // текущий бой
 
-const DIFF_NAMES = ["EASY", "NORMAL", "HARD"];
+const DIFF_NAMES = ["INTERN", "SENATOR", "COMMANDER-IN-CHIEF", "IMPEACHMENT MODE"];
+const DIFF_HINTS = [
+  "Easy. The CPU goes softer if you keep losing",
+  "Normal. A fair fight",
+  "Hard. The CPU blocks, combos and punishes",
+  "Secret. Stronger CPU, more health, NO continues",
+];
+// Звания за прохождение аркады на каждом уровне
+const TITLES = ["JUNIOR STAFFER", "MAJORITY LEADER", "LEADER OF THE FREE WORLD", "PRESIDENT FOR LIFE"];
+const MEDAL_COLORS = ["#c98a4b", "#d7dde6", GOLD, "#ff4d6d"];
+function diffCount() { return G.impeachUnlocked ? 4 : 3; }
+if (G.diff > 2 && !G.impeachUnlocked) G.diff = 2;
+const TIPS = [
+  "Block by holding BACK. Hold DOWN+BACK against low kicks.",
+  "Throw: FORWARD+PUNCH up close. Press PUNCH to break a throw.",
+  "Hit with a punch, then press SPEC right away to cancel into a special.",
+  "A full meter lets you fire SUPER (PUNCH+KICK).",
+  "Knocked into the air? Your opponent can juggle you twice. Block on landing.",
+  "Each fighter has 3 specials: SPEC, FWD+SPEC and DOWN+SPEC.",
+];
 
 function go(screen) { G.screen = screen; G.screenT = 0; G.menuSel = 0; document.body.classList.toggle("fighting", screen === "fight"); }
 
@@ -428,7 +450,7 @@ function updateThrow(f, o, a) {
     a.hit = true;
     if (Math.abs(o.x - f.x) < a.m.range + 10 && canBeThrown(o)) {
       if (G.time - o.lastPunchT < 0.2 && !o.bot) { throwBreak(f, o); return; }
-      if (o.bot && o.level > 0 && Math.random() < 0.12 * o.level) { throwBreak(f, o); return; }
+      if (o.bot && o.level > 0 && Math.random() < (o.level >= 3 ? 0.6 : 0.12 * o.level)) { throwBreak(f, o); return; }
       const mul = f.id === "trump" ? 1.2 : 1;
       if (a.backThrow) { o.x = clamp(f.x - f.face * 70, WALL_L, WALL_R); }
       hit(f, o, { dmg: 10 * mul, unblockable: true, unparryable: true, knock: true, throw: true, meter: 10, sfx: "heavy", x: o.x, y: o.y - 150 });
@@ -725,6 +747,7 @@ const LV = [
   { react: 0.42, block: 0.2, aggr: 0.45, sup: 0.35, combo: 0.15 },
   { react: 0.26, block: 0.45, aggr: 0.6, sup: 0.65, combo: 0.4 },
   { react: 0.15, block: 0.72, aggr: 0.75, sup: 0.9, combo: 0.7 },
+  { react: 0.1, block: 0.86, aggr: 0.85, sup: 1, combo: 0.85 }, // IMPEACHMENT MODE
 ];
 // Насколько боту хочется сделать спецприём этого типа на такой дистанции (0..1)
 const AI_USE = {
@@ -828,6 +851,7 @@ function newFight(opts) {
     isBoss: !!opts.boss, altBg: false, winner: null, matchWinner: null, comboShow: null, superFlash: null, flashScreen: 0,
     dummy: "stand",
   };
+  if (opts.hpMult) { const b = F.p[1]; b.maxHp = Math.round(b.maxHp * opts.hpMult); b.hp = b.shownHp = b.maxHp; }
   G.paused = false;
   go("fight");
   SFX.round();
@@ -970,13 +994,24 @@ function finishMatch() {
   const humanWon = F.matchWinner === F.p[0];
   if (F.opts.mode === "arcade") {
     if (humanWon) {
+      G.loseStreak = 0;
       G.ladder.idx++;
       if (G.ladder.idx >= G.ladder.list.length) {
-        G.newUnlock = !G.bossUnlocked && G.ladder.pid !== "rating";
+        const L = G.ladder, unl = [];
+        if (!G.bossUnlocked && L.pid !== "rating") unl.push("NEW FIGHTER UNLOCKED: MR. RATING");
         G.bossUnlocked = true; store.set("boss", true);
+        if (L.diff >= 2 && !G.impeachUnlocked) { G.impeachUnlocked = true; store.set("impeach", true); unl.push("SECRET DIFFICULTY UNLOCKED: IMPEACHMENT MODE"); }
+        const prev = G.clears[L.pid] ?? -1;
+        G.newTitle = L.diff > prev;
+        if (G.newTitle) { G.clears[L.pid] = L.diff; store.set("clears", G.clears); }
+        G.unlocks = unl;
         go("ending");
       } else go("ladder");
-    } else go("continue");
+    } else {
+      G.loseStreak++;
+      G.tip = pick(TIPS);
+      go(G.ladder.diff === 3 ? "gameover" : "continue");
+    }
   } else {
     G.lastWinner = F.matchWinner;
     go("result");
@@ -1030,17 +1065,23 @@ function makeLadder(pid) {
   const list = D.arcade.tours.map((tour, i) => ({
     opp: opps[i], tour,
     arena: pick(Object.keys(D.arenas).filter((k) => D.arenas[k].tour === tour)),
-    level: clamp(D.arcade.levels[i] + G.diff - 1, 0, 2),
+    level: G.diff === 3 ? 3 : clamp(D.arcade.levels[i] + G.diff - 1, 0, 2),
+    hpMult: G.diff === 3 ? 1.15 : 1,
   }));
   const b = D.arcade.boss;
-  list.push({ opp: b.fighter, arena: b.arena, level: clamp(b.level + G.diff - 1, 1, 2), tour: 4, boss: true });
-  return { pid, list, idx: 0 };
+  list.push({ opp: b.fighter, arena: b.arena, level: G.diff === 3 ? 3 : clamp(b.level + G.diff - 1, 1, 2), tour: 4, boss: true,
+    hpMult: G.diff === 3 ? 1.3 : 1 });
+  return { pid, list, idx: 0, diff: G.diff };
 }
 
-function startLadderFight() {
+function ladderOpts() {
   const L = G.ladder, s = L.list[L.idx];
-  newFight({ mode: "arcade", p1: L.pid, p2: s.opp, arena: s.arena, level1: null, level2: s.level, boss: !!s.boss });
+  let level = s.level, hpMult = s.hpMult || 1;
+  // INTERN: после двух поражений подряд бот слабеет
+  if (L.diff === 0 && G.loseStreak >= 2) { level = 0; hpMult *= G.loseStreak >= 3 ? 0.75 : 0.85; }
+  return { mode: "arcade", p1: L.pid, p2: s.opp, arena: s.arena, level1: null, level2: level, boss: !!s.boss, hpMult };
 }
+function startLadderFight() { newFight(ladderOpts()); }
 
 function rosterVisible() { return D.roster; }
 function locked(id) { return D.fighters[id].boss && !G.bossUnlocked; }
@@ -1064,7 +1105,7 @@ function updateMenus(dt) {
         G.sel = { step: 0, cur: 0, picks: [] };
         go("select"); SFX.ok();
       } else if (choice === 4) {
-        G.diff = n.left ? (G.diff + 2) % 3 : (G.diff + 1) % 3; store.set("diff", G.diff); SFX.menu(); G.menuSel = 4;
+        { const k = diffCount(); G.diff = n.left ? (G.diff + k - 1) % k : (G.diff + 1) % k; } store.set("diff", G.diff); SFX.menu(); G.menuSel = 4;
       } else if (choice === 5) {
         muted = !muted; store.set("muted", muted); SFX.ok(); G.menuSel = 5;
       }
@@ -1086,7 +1127,7 @@ function updateMenus(dt) {
         s.picks.push(id); SFX.ok();
         const need = G.mode === "arcade" ? 1 : 2;
         if (s.picks.length >= need) {
-          if (G.mode === "arcade") { G.ladder = makeLadder(s.picks[0]); go("ladder"); }
+          if (G.mode === "arcade") { G.loseStreak = 0; G.ladder = makeLadder(s.picks[0]); go("ladder"); }
           else { G.arenaSel = 0; go("arena"); }
         } else { s.step++; s.cur = (choose + 1) % R.length; }
       }
@@ -1112,7 +1153,7 @@ function updateMenus(dt) {
       if (n.back) { go("title"); SFX.back(); break; }
       if (G.screenT > 0.4 && (n.ok || n.tapped)) {
         const s = G.ladder.list[G.ladder.idx];
-        G.pending = { mode: "arcade", p1: G.ladder.pid, p2: s.opp, arena: s.arena, level1: null, level2: s.level, boss: !!s.boss };
+        G.pending = ladderOpts();
         go("vs"); SFX.ok();
       }
       break;
@@ -1126,6 +1167,9 @@ function updateMenus(dt) {
         if (c === 0) { startLadderFight(); }
         if (c === 1 || n.back) { go("title"); SFX.back(); }
       }
+      break;
+    case "gameover":
+      if (G.screenT > 1.2 && n.any) { go("title"); SFX.back(); }
       break;
     case "result": {
       const items = 3;
@@ -1846,7 +1890,7 @@ function menuList(items, sel, cx, y, w, h, gap = 14) {
     ctx.fillRect(cx - w / 2, yy, w, h);
     ctx.strokeStyle = on ? "#fff" : "rgba(255,255,255,.3)"; ctx.lineWidth = 2; ctx.strokeRect(cx - w / 2, yy, w, h);
     ctx.font = `${Math.round(h * 0.42)}px ${FONT}`; ctx.textAlign = "center"; ctx.fillStyle = on ? INK : WHITE;
-    ctx.fillText(s, cx, yy + h * 0.66);
+    ctx.fillText(s, cx, yy + h * 0.66, w - 24);
     G.hits.push({ x: cx - w / 2, y: yy, w, h, i });
   });
 }
@@ -1879,9 +1923,9 @@ function drawTitle() {
 function drawMode() {
   menuBg();
   drawLogo(110, 40);
-  menuList(["ARCADE", "VS CPU", "2 PLAYERS", "TRAINING", "DIFFICULTY: " + DIFF_NAMES[G.diff], "SOUND: " + (muted ? "OFF" : "ON")], G.menuSel, W / 2, 230, 460, 56, 12);
+  menuList(["ARCADE", "VS CPU", "2 PLAYERS", "TRAINING", "LEVEL: " + DIFF_NAMES[G.diff], "SOUND: " + (muted ? "OFF" : "ON")], G.menuSel, W / 2, 230, 460, 56, 12);
   ctx.font = `16px ${FONT}`; ctx.textAlign = "center"; ctx.fillStyle = "rgba(255,255,255,.65)";
-  const hint = ["7 fights in a row. Final boss in the Oval Office", "Free fight against the computer on any arena", "Two players on one keyboard", "Practice moves and combos. Pause shows the move list", "Affects the CPU in arcade and VS CPU", ""][G.menuSel];
+  const hint = ["7 fights in a row. Final boss in the Oval Office", "Free fight against the computer on any arena", "Two players on one keyboard", "Practice moves and combos. Pause shows the move list", DIFF_HINTS[G.diff] + (G.impeachUnlocked ? "" : "  ·  Beat arcade on COMMANDER-IN-CHIEF to unlock a secret level"), ""][G.menuSel];
   ctx.fillText(hint, W / 2, 650);
 }
 
@@ -1903,6 +1947,11 @@ function drawSelect() {
     ctx.strokeStyle = on ? (s.step === 0 ? GOLD : "#ff7a7a") : "rgba(255,255,255,.3)"; ctx.lineWidth = on ? 5 : 2; ctx.strokeRect(x, y, w, h);
     ctx.fillStyle = "rgba(0,0,0,.7)"; ctx.fillRect(x, y + h - 38, w, 38);
     label(lk ? "???" : D.fighters[id].name, x + w / 2, y + h - 12, D.fighters[id].name.length > 9 ? 15 : 22, WHITE);
+    const cl = G.clears[id];
+    if (cl !== undefined && !lk) for (let m = 0; m <= cl; m++) {
+      ctx.beginPath(); ctx.arc(x + w - 18 - m * 22, y + 20, 8, 0, Math.PI * 2);
+      ctx.fillStyle = MEDAL_COLORS[m]; ctx.fill(); ctx.lineWidth = 2; ctx.strokeStyle = INK; ctx.stroke();
+    }
     s.picks.forEach((pid, k) => { if (pid === id) label(k === 0 ? "1P" : G.mode === "vs" ? "2P" : G.mode === "training" ? "DUMMY" : "CPU", x + 30, y + 30, 22, k === 0 ? GOLD : "#ff7a7a"); });
     G.hits.push({ x, y, w, h, i });
   });
@@ -1916,6 +1965,7 @@ function drawSelect() {
     ctx.restore();
     ctx.textAlign = "left"; ctx.font = `30px ${FONT}`; ctx.fillStyle = GOLD; ctx.fillText(d.name, 920, 170);
     ctx.font = `16px ${FONT}`; ctx.fillStyle = "rgba(255,255,255,.8)"; ctx.fillText(d.full, 920, 196);
+    if (G.clears[id] !== undefined) { ctx.font = `13px ${FONT}`; ctx.fillStyle = MEDAL_COLORS[G.clears[id]]; ctx.fillText("★ " + TITLES[G.clears[id]], 920, 218); }
     const stats = [["SPEED", d.speed], ["POWER", d.power], ["HEALTH", d.health]];
     stats.forEach(([n, v], i) => {
       const y = 240 + i * 48; ctx.fillStyle = WHITE; ctx.font = `15px ${FONT}`; ctx.fillText(n, 920, y);
@@ -1963,6 +2013,8 @@ function drawLadder() {
   menuBg();
   const L = G.ladder;
   bigText("ROAD TO THE FIFTH TERM", 70, 40, GOLD);
+  ctx.font = `16px ${FONT}`; ctx.textAlign = "right"; ctx.fillStyle = L.diff === 3 ? "#ff4d6d" : "rgba(255,255,255,.7)";
+  ctx.fillText(DIFF_NAMES[L.diff] + (L.diff === 3 ? " · NO CONTINUES" : ""), W - 30, 36);
   L.list.forEach((s, i) => {
     const y = 110 + i * 74, done = i < L.idx, cur = i === L.idx;
     ctx.fillStyle = cur ? "rgba(255,213,74,.95)" : done ? "rgba(40,90,50,.85)" : "rgba(20,26,60,.85)";
@@ -1998,6 +2050,17 @@ function drawContinue() {
   bigText(D.texts.impeach, 200, 90, RED);
   bigText("CONTINUE?", 300, 44, WHITE);
   menuList(["YES — TRY AGAIN", "NO — MAIN MENU"], G.menuSel, W / 2, 360, 420, 64);
+  ctx.font = `18px ${FONT}`; ctx.textAlign = "center"; ctx.fillStyle = "#9fc2ff";
+  if (G.tip) ctx.fillText("TIP: " + G.tip, W / 2, 560);
+  if (G.ladder && G.ladder.diff === 0 && G.loseStreak >= 2) { ctx.fillStyle = "rgba(255,255,255,.6)"; ctx.fillText("Your opponent is feeling tired...", W / 2, 600); }
+}
+function drawGameOver() {
+  menuBg();
+  bigText(D.texts.impeach, 240, 96, RED);
+  bigText("IMPEACHMENT MODE: NO SECOND TERMS", 340, 30, WHITE);
+  ctx.font = `18px ${FONT}`; ctx.textAlign = "center"; ctx.fillStyle = "#9fc2ff";
+  if (G.tip) ctx.fillText("TIP: " + G.tip, W / 2, 470);
+  if (G.screenT > 1.2) bigText(isTouch ? "TAP TO CONTINUE" : "PRESS ANY KEY", 640, 24, GOLD);
 }
 
 function drawResult() {
@@ -2019,7 +2082,10 @@ function drawEnding() {
   bigText(D.texts.champion, 100, 80, GOLD);
   ctx.font = `24px ${FONT}`; ctx.textAlign = "center"; ctx.fillStyle = WHITE;
   wrapText(d.ending, W / 2, 530, 980, 32);
-  if (G.newUnlock) bigText("NEW FIGHTER UNLOCKED: MR. RATING", 660, 26, "#6fd3ff");
+  const L = G.ladder;
+  ctx.font = `20px ${FONT}`; ctx.fillStyle = MEDAL_COLORS[L.diff];
+  ctx.fillText((G.newTitle ? "NEW TITLE: " : "TITLE: ") + TITLES[L.diff] + "  ·  " + DIFF_NAMES[L.diff], W / 2, 190);
+  (G.unlocks || []).forEach((t, i) => bigText(t, 640 + i * 34, 24, "#6fd3ff"));
 }
 
 /* ------------------------------------------------------------------ */
@@ -2042,6 +2108,7 @@ function draw() {
     case "vs": drawVS(); break;
     case "fight": drawFight(); break;
     case "continue": drawContinue(); break;
+    case "gameover": drawGameOver(); break;
     case "result": drawResult(); break;
     case "ending": drawEnding(); break;
   }
@@ -2060,7 +2127,7 @@ function frame(now) {
 requestAnimationFrame(frame);
 
 // Отладка и автотесты: window.PK
-window.PK = {
+window.PK = { finishMatch, ladderOpts, 
   G, get F() { return F; }, D, newFight, makeLadder, go,
   sim(seconds, step = 1 / 60) { for (let t = 0; t < seconds; t += step) { G.time += step; update(step); justPressed.clear(); touch.p = {}; G.click = null; } draw(); },
   botVsBot(p1 = "bush", p2 = "trump", arena = "detroit") {
