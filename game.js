@@ -5,6 +5,7 @@
  * Как только в sprites.js / assets/arenas появятся картинки, движок подхватит их сам. */
 (() => {
 const D = window.GAME_DATA;
+for (const id in D.fighters) D.fighters[id].id = id;
 const SPR = window.SPRITES || {};
 const canvas = document.getElementById("game");
 const ctx = canvas.getContext("2d");
@@ -1690,9 +1691,9 @@ function poseOf(f) {
       else if (a.kind === "kick") { p.key = a.crouch ? "ckick" : "kick"; p.legs = inStart ? "stand" : "kick"; p.cr = a.crouch ? 1 : 0; p.lean = -0.15; }
       else if (a.kind === "cpunch") { p.key = "cpunch"; p.cr = 1; p.arms = inStart ? "guard" : "punch"; }
       else if (a.kind === "akick") { p.key = "akick"; p.legs = "akick"; p.arms = "block"; }
-      else if (a.kind === "throw") { p.key = "throw"; p.arms = inStart ? "cast" : "up"; p.lean = inStart ? 0.2 : -0.2; }
+      else if (a.kind === "throw") { p.key = inStart ? "throw_0" : "throw"; p.arms = inStart ? "cast" : "up"; p.lean = inStart ? 0.2 : -0.2; }
       else if (a.kind === "special") {
-        p.key = "special";
+        p.key = "sp_" + a.type;
         if (a.type === "parry") { p.cr = 0.55; p.lean = -0.45; p.arms = "guard"; p.key = "parry"; }
         else if (a.type === "counter") { p.arms = "upper"; p.lean = 0.25; p.key = "counter"; }
         else if (a.type === "ball") p.arms = inStart ? "chest" : "shoot";
@@ -1791,7 +1792,12 @@ function drawFighter(f) {
   ctx.globalAlpha = f.ghost ? 0.55 : f.alpha;
   ctx.scale(f.face, 1);
   const set = SPR[f.id];
-  const key = set && set[pose.key] ? pose.key : set && set.idle ? "idle" : null;
+  const FALLBACK = { throw_0: "throw", punch_0: "punch", ckick: "kick", crouch_block: "block", fall: "hurt", getup: "crouch", counter: "punch", parry: "block", super_0: "super" };
+  let key = null;
+  if (set) {
+    const tries = [pose.key, FALLBACK[pose.key], pose.key.startsWith("sp_") ? "special" : null, pose.key.startsWith("walk") ? "idle" : null, "idle"];
+    key = tries.find((k) => k && set[k]) || null;
+  }
   const img = key && IMG[`spr_${f.id}_${key}`];
   if (img) {
     const s = set[key], k = s.scale || 1;
@@ -1834,7 +1840,32 @@ function drawTapeBands(f) {
 }
 
 // Боец-заглушка: простая фигура в цветах персонажа. Нос/лицо всегда смотрят в +x.
+// Если для бойца есть спрайты — рисуем картинку вместо заглушки
+function spriteKeyFor(p, walkPh) {
+  if (p.key) return p.key;
+  if (p.lying) return "ko";
+  if (p.arms === "up") return "win";
+  if (p.arms === "punch" || p.arms === "cast") return "punch";
+  if (p.arms === "flail") return "hurt";
+  if (p.arms === "down" && p.cr > 0.5) return "lose";
+  if (p.legs === "walk") return "walk_" + (1 + (Math.floor(walkPh * 4) % 4));
+  return "idle";
+}
+function drawSpriteOf(id, key, flash) {
+  const set = SPR[id];
+  if (!set) return false;
+  const k = [key, key && key.startsWith("walk") ? "idle" : null, "idle"].find((x) => x && set[x] && IMG[`spr_${id}_${x}`]);
+  if (!k) return false;
+  const s = set[k], img = IMG[`spr_${id}_${k}`];
+  ctx.save(); ctx.imageSmoothingEnabled = false;
+  ctx.drawImage(img, -s.ax, -s.ay);
+  if (flash) { ctx.globalCompositeOperation = "lighter"; ctx.globalAlpha = 0.5; ctx.drawImage(img, -s.ax, -s.ay); }
+  ctx.restore();
+  return true;
+}
+
 function drawDummy(d, p, flash, walkPh) {
+  if (d.id && SPR[d.id] && drawSpriteOf(d.id, spriteKeyFor(p, walkPh || 0), flash)) return;
   const C = d.colors, L = d.look || {};
   const col = (c) => (flash ? "#ffffff" : c);
   const cr = p.cr;
@@ -1951,7 +1982,7 @@ function roundRect(x, y, w, h, r) {
 function drawPortrait(id, x, y, size, dim) {
   const set = SPR[id], img = set && set.portrait && IMG[`spr_${id}_portrait`];
   ctx.save();
-  if (img) { ctx.imageSmoothingEnabled = false; ctx.drawImage(img, x, y, size, size); }
+  if (img) { ctx.imageSmoothingEnabled = true; ctx.drawImage(img, x, y, size, size); }
   else {
     ctx.translate(x + size / 2, y + size * 2.14);
     const k = size / 120; ctx.scale(k, k);
