@@ -209,7 +209,22 @@ const MOVES = {
   kick:   { start: 0.11, act: 0.09, rec: 0.24, dmg: 8, range: 128, hgt: "low",  stun: 0.34, push: 210, meter: 10, sfx: "heavy" },
   cpunch: { start: 0.06, act: 0.07, rec: 0.14, dmg: 4, range: 104, hgt: "low",  stun: 0.24, push: 130, meter: 6, sfx: "hit" },
   akick:  { start: 0.05, act: 0.6,  rec: 0,    dmg: 7, range: 112, hgt: "over", stun: 0.30, push: 160, meter: 8, sfx: "heavy", air: true },
+  throw:  { start: 0.06, act: 0.05, rec: 0.4,  range: 104 },
 };
+// Тайминги спецприёмов: подготовка, активная фаза, восстановление (сек)
+const SP_TIME = {
+  parry: { start: 0.05, act: 0.5, rec: 0.25 },     counter: { start: 0.07, act: 0.12, rec: 0.3 },
+  brush: { start: 0.1, act: 0.24, rec: 0.3 },      decider: { start: 0.12, act: 0.1, rec: 0.2 },
+  notes: { start: 0.16, act: 0.1, rec: 0.3 },      jog: { start: 0.06, act: 0.36, rec: 0.2 },
+  townhall: { start: 0.1, act: 0.7, rec: 0.25 },   fired: { start: 0.16, act: 0.1, rec: 0.3 },
+  deal: { start: 0.12, act: 0.08, rec: 0.55 },     bigleague: { start: 0.34, act: 0.1, rec: 0.35 },
+  lasso: { start: 0.16, act: 0.1, rec: 0.3 },      hat: { start: 0.14, act: 0.1, rec: 0.3 },
+  beans: { start: 0.18, act: 0.1, rec: 0.35 },     ball: { start: 0.16, act: 0.1, rec: 0.3 },
+  fastbreak: { start: 0.08, act: 0.3, rec: 0.3 },  yeswecan: { start: 0.2, act: 0.1, rec: 0.2 },
+  teleport: { start: 0.32, act: 0.14, rec: 0.3 },  tv: { start: 0.16, act: 0.1, rec: 0.3 },
+  spike: { start: 0.08, act: 0.22, rec: 0.35 },
+};
+const SLOTS = ["n", "f", "d"];
 
 function makeFighter(id, side, ctl, level) {
   const d = D.fighters[id];
@@ -225,8 +240,9 @@ function makeFighter(id, side, ctl, level) {
 function resetFighter(f) {
   Object.assign(f, {
     x: f.side === 0 ? W * 0.32 : W * 0.68, y: FLOOR, vx: 0, vy: 0, face: f.side === 0 ? 1 : -1, onGround: true,
-    hp: f.maxHp, shownHp: f.maxHp, st: "idle", stT: 0, atk: null, stun: 0, cd: 0, combo: 0, comboT: 0,
+    hp: f.maxHp, shownHp: f.maxHp, st: "idle", stT: 0, atk: null, stun: 0, cds: { n: 0, f: 0, d: 0 }, combo: 0, comboT: 0,
     inv: 0, reflectT: 0, flash: 0, walkPh: 0, airAtk: false, crouchBlock: false, crouchHurt: false, alpha: 1,
+    armor: 0, buffT: 0, deciderT: 0, juggle: 0, jumps: 0, recent: [], tyga: false, lastPunchT: -9, ghost: false,
   });
   f.ai = { t: 0.4, hold: {} };
 }
@@ -234,7 +250,7 @@ function setSt(f, s) { if (f.st !== s) { f.st = s; f.stT = 0; } }
 function other(f) { return F.p[0] === f ? F.p[1] : F.p[0]; }
 function isCrouching(f) {
   return f.st === "crouch" || (f.st === "block" && f.crouchBlock) || (f.st === "hurt" && f.crouchHurt) ||
-    (f.st === "atk" && f.atk && f.atk.crouch) || (f.st === "atk" && f.atk && f.atk.type === "parry");
+    (f.st === "atk" && f.atk && (f.atk.crouch || f.atk.type === "parry" || f.atk.type === "fastbreak"));
 }
 function canBlock(def, att, hgt) {
   if (!["idle", "walk", "crouch", "block"].includes(def.st) || !def.onGround) return false;
@@ -242,24 +258,48 @@ function canBlock(def, att, hgt) {
   if (isCrouching(def)) return hgt === "low" || hgt === "mid";
   return def.ctl.h[away] && hgt !== "low";
 }
+function canBeThrown(o) {
+  return o.onGround && o.inv <= 0 && ["idle", "walk", "crouch", "block", "atk"].includes(o.st) && !(o.st === "atk" && o.atk && o.atk.kind === "super");
+}
+function powerOf(att) {
+  let p = att.d.power;
+  if (att.id === "clinton") p *= 1 + 0.5 * (1 - att.hp / att.maxHp);       // Comeback Kid
+  if (att.buffT > 0) p *= 1.15;                                             // Yes We Can
+  return p;
+}
+// Рейган: «There you go again» — соперник трижды подряд сделал одно и то же
+function noteMove(f, key) {
+  const o = other(f);
+  if (o.id !== "reagan" || o.tyga) return;
+  o.recent.push(key);
+  if (o.recent.length > 3) o.recent.shift();
+  if (o.recent.length === 3 && o.recent.every((k) => k === key)) {
+    o.tyga = true; o.recent = [];
+    popText("THERE YOU GO AGAIN!", o.x, o.y - 300, GOLD, 1.4, 30);
+  }
+}
 
 function startAtk(f, kind, extra) {
   const m = MOVES[kind] || { start: 0.15, act: 0.1, rec: 0.3 };
   f.atk = Object.assign({ kind, m, t: 0, hit: false, fired: false, crouch: f.st === "crouch" || kind === "cpunch" }, extra || {});
   setSt(f, "atk");
   if (!m.air) f.vx = 0;
+  if (kind !== "special" && kind !== "super") noteMove(f, kind);
   SFX.whoosh();
 }
 
-function startSpecial(f) {
-  const type = f.d.special.type;
-  f.cd = f.d.specialCd;
-  startAtk(f, "special", { type, crouch: false });
-  f.atk.m = type === "parry" ? { start: 0.05, act: 0.5, rec: 0.25 }
-          : type === "teleport" ? { start: 0.32, act: 0.14, rec: 0.3 }
-          : { start: 0.16, act: 0.1, rec: 0.3 };
-  popText(f.d.special.name, f.x, f.y - 290, WHITE, 0.9);
+function slotFrom(c, fwd) { return c.h.down ? "d" : c.h[fwd] ? "f" : "n"; }
+function startSpecial(f, slot) {
+  const sp = f.d.specials[slot];
+  if (!sp || f.cds[slot] > 0) return false;
+  f.cds[slot] = sp.cd;
+  startAtk(f, "special", { type: sp.type, slot, crouch: false });
+  f.atk.m = SP_TIME[sp.type] || { start: 0.16, act: 0.1, rec: 0.3 };
+  if (sp.type === "bigleague") { f.armor = 1; popText("ARMOR", f.x, f.y - 250, "#ffb04a", 0.6, 22); }
+  noteMove(f, "sp_" + sp.type);
+  popText(sp.name, f.x, f.y - 290, WHITE, 0.9);
   SFX.special();
+  return true;
 }
 
 function startSuper(f) {
@@ -275,16 +315,23 @@ function startSuper(f) {
 function handleInput(f, o, c) {
   const back = f.face === 1 ? "left" : "right", fwd = f.face === 1 ? "right" : "left";
   if (f.st === "jump") {
+    if (c.p.up && f.id === "obama" && f.jumps < 1) { // двойной прыжок
+      f.jumps++; f.vy = -JUMP_V * 0.85; f.airAtk = false;
+      f.vx = (c.h[fwd] ? 1 : c.h[back] ? -1 : 0) * f.face * WALK * 1.2 * f.d.speed;
+      spark(f.x, f.y, "dust"); SFX.jump();
+      return;
+    }
     if ((c.p.kick || c.p.punch) && !f.airAtk) { f.airAtk = true; startAtk(f, "akick"); }
     return;
   }
   const wantSuper = c.p.super || (c.p.punch && c.h.kick) || (c.p.kick && c.h.punch);
   if (wantSuper && f.meter >= 100) { startSuper(f); return; }
-  if (c.p.special && f.cd <= 0) { startSpecial(f); return; }
+  if (c.p.special && startSpecial(f, slotFrom(c, fwd))) return;
   if (c.p.up) {
     const dir = c.h[fwd] ? 1 : c.h[back] ? -1 : 0;
-    f.vy = -JUMP_V; f.vx = dir * f.face * WALK * 1.15 * f.d.speed;
-    f.onGround = false; f.airAtk = false;
+    const sp = f.buffT > 0 ? 1.25 : 1;
+    f.vy = -JUMP_V; f.vx = dir * f.face * WALK * 1.15 * f.d.speed * sp;
+    f.onGround = false; f.airAtk = false; f.jumps = 0;
     setSt(f, "jump"); SFX.jump();
     return;
   }
@@ -294,10 +341,15 @@ function handleInput(f, o, c) {
     setSt(f, "crouch");
     return;
   }
+  // бросок вплотную: вперёд/назад + PUNCH
+  if (c.p.punch && (c.h[fwd] || c.h[back]) && Math.abs(o.x - f.x) < MOVES.throw.range && canBeThrown(o)) {
+    startAtk(f, "throw", { backThrow: !!c.h[back] });
+    return;
+  }
   if (c.p.punch) { startAtk(f, "punch"); return; }
   if (c.p.kick) { startAtk(f, "kick"); return; }
   const dir = (c.h[fwd] ? 1 : 0) - (c.h[back] ? 1 : 0);
-  f.vx = dir * f.face * WALK * f.d.speed * (dir < 0 ? 0.8 : 1);
+  f.vx = dir * f.face * WALK * f.d.speed * (dir < 0 ? 0.8 : 1) * (f.buffT > 0 ? 1.25 : 1);
   setSt(f, dir ? "walk" : "idle");
 }
 
@@ -305,9 +357,12 @@ function updateFighter(f, o, dt) {
   f.flash = Math.max(0, f.flash - dt);
   f.inv = Math.max(0, f.inv - dt);
   f.reflectT = Math.max(0, f.reflectT - dt);
-  f.cd = Math.max(0, f.cd - dt);
+  f.buffT = Math.max(0, f.buffT - dt);
+  f.deciderT = Math.max(0, f.deciderT - dt);
+  for (const s of SLOTS) f.cds[s] = Math.max(0, f.cds[s] - dt);
   f.comboT -= dt; if (f.comboT <= 0) f.combo = 0;
   f.stT += dt;
+  if (f.ctl.p.punch) f.lastPunchT = G.time;
   f.shownHp += (f.hp - f.shownHp) * Math.min(1, dt * 3);
   if (f.alpha < 1 && !(f.st === "atk" && f.atk && f.atk.type === "teleport")) f.alpha = Math.min(1, f.alpha + dt * 4);
 
@@ -320,7 +375,7 @@ function updateFighter(f, o, dt) {
       if (f.stun <= 0) setSt(f, f.onGround ? "idle" : "jump");
       break;
     case "down":
-      if (f.onGround && f.stT > 0.75) { if (f.hp <= 0) setSt(f, "ko"); else if (F.phase === "fight") setSt(f, "getup"); }
+      if (f.onGround && f.stT > 0.75) { f.juggle = 0; if (f.hp <= 0) setSt(f, "ko"); else if (F.phase === "fight") setSt(f, "getup"); }
       break;
     case "getup":
       f.inv = 0.25;
@@ -346,23 +401,52 @@ function updateFighter(f, o, dt) {
       SFX.land();
     }
   }
-  if (f.onGround && f.st !== "walk" && !(f.st === "atk" && f.atk && f.atk.dash)) f.vx -= f.vx * Math.min(1, dt * 9);
+  const dashing = f.st === "atk" && f.atk && (f.atk.dash || f.atk.moving);
+  if (f.onGround && f.st !== "walk" && !dashing) f.vx -= f.vx * Math.min(1, dt * 9);
   f.x = clamp(f.x, WALL_L, WALL_R);
-  if (f.walkPh !== undefined && f.st === "walk") f.walkPh += dt * 2.2 * f.d.speed;
+  if (f.st === "walk") f.walkPh += dt * 2.2 * f.d.speed;
 }
 
 function updateAttack(f, o, dt) {
-  const a = f.atk, m = a.m;
+  const a = f.atk, m = a.m, c = f.ctl;
   a.t += dt;
   if (a.kind === "akick") { if (!a.hit && a.t >= m.start) tryHit(f, o, m, a); return; }
   if (a.kind === "special") { updateSpecial(f, o, dt); return; }
   if (a.kind === "super") { updateSuper(f, o, dt); return; }
+  if (a.kind === "throw") { updateThrow(f, o, a); return; }
   if (!a.hit && a.t >= m.start && a.t < m.start + m.act) tryHit(f, o, m, a);
-  if (a.t >= m.start + m.act + m.rec) { const cr = a.crouch && f.ctl.h.down; f.atk = null; setSt(f, cr ? "crouch" : "idle"); }
+  // отмена удара в спецприём (после попадания или блока)
+  if (a.hit && c.p.special && a.t < m.start + m.act + m.rec * 0.75) {
+    const fwd = f.face === 1 ? "right" : "left";
+    if (startSpecial(f, slotFrom(c, fwd))) { popText("CANCEL!", f.x, f.y - 250, "#9fe8ff", 0.5, 20); return; }
+  }
+  if (a.t >= m.start + m.act + m.rec) { const cr = a.crouch && c.h.down; f.atk = null; setSt(f, cr ? "crouch" : "idle"); }
+}
+
+function updateThrow(f, o, a) {
+  if (!a.hit && a.t >= a.m.start) {
+    a.hit = true;
+    if (Math.abs(o.x - f.x) < a.m.range + 10 && canBeThrown(o)) {
+      if (G.time - o.lastPunchT < 0.2 && !o.bot) { throwBreak(f, o); return; }
+      if (o.bot && o.level > 0 && Math.random() < 0.12 * o.level) { throwBreak(f, o); return; }
+      const mul = f.id === "trump" ? 1.2 : 1;
+      if (a.backThrow) { o.x = clamp(f.x - f.face * 70, WALL_L, WALL_R); }
+      hit(f, o, { dmg: 10 * mul, unblockable: true, unparryable: true, knock: true, throw: true, meter: 10, sfx: "heavy", x: o.x, y: o.y - 150 });
+      if (a.backThrow) o.vx = -f.face * 380;
+      popText(f.id === "trump" ? "YOU'RE FIRED!" : "THROW!", f.x, f.y - 290, GOLD, 0.8, 26);
+    }
+  }
+  if (a.t >= a.m.start + a.m.act + a.m.rec) { f.atk = null; setSt(f, "idle"); }
+}
+function throwBreak(f, o) {
+  popText("BREAK!", (f.x + o.x) / 2, f.y - 280, "#9fe8ff", 0.8);
+  f.atk = null; setSt(f, "hurt"); f.stun = 0.25; f.vx = -f.face * 300;
+  o.atk = null; setSt(o, "hurt"); o.stun = 0.25; o.vx = -o.face * 300;
+  SFX.block();
 }
 
 function tryHit(f, o, m, a) {
-  if (o.st === "down" || o.st === "ko" || o.inv > 0) return;
+  if ((o.st === "down" && o.onGround) || o.st === "ko" || o.inv > 0) return;
   const dx = (o.x - f.x) * f.face;
   if (dx < -20 || dx > m.range + 34) return;
   if (Math.abs(o.y - f.y) > (m.air ? 240 : 150)) return;
@@ -370,30 +454,46 @@ function tryHit(f, o, m, a) {
   if (m.hgt === "high" && isCrouching(o)) return; // ушёл в присед
   a.hit = true;
   hit(f, o, {
-    dmg: m.dmg, hgt: m.hgt, stun: m.stun, push: m.push, meter: m.meter, sfx: m.sfx,
+    dmg: m.dmg, hgt: m.hgt, stun: m.stun, push: m.push, meter: m.meter, sfx: m.sfx, knock: m.knock,
     x: f.x + f.face * m.range * 0.85, y: f.y - (m.hgt === "low" ? 50 : m.air ? 120 : 165),
   });
 }
 
 function hit(att, def, h) {
-  if (def.inv > 0 || def.st === "ko" || def.st === "down") return false;
+  if (def.inv > 0 || def.st === "ko") return false;
+  const dir = Math.sign(def.x - att.x) || att.face;
+  // добивание в воздухе: подброшенного соперника можно ударить ещё дважды
+  if (def.st === "down") {
+    if (def.onGround || def.juggle >= 2 || def.hp <= 0 || h.throw) return false;
+    def.juggle++;
+    const jd = h.dmg * powerOf(att) * 0.6;
+    def.hp = Math.max(F.opts.training ? 1 : 0, def.hp - jd);
+    def.vy = -560; def.vx = dir * 220; def.flash = 0.12;
+    att.combo++; att.comboT = 1.1; if (att.combo >= 2) F.comboShow = { who: att, n: att.combo, t: 1.2 };
+    att.meter = Math.min(100, att.meter + 6);
+    if (def.juggle === 1) popText("JUGGLE!", def.x, def.y - 240, "#9fe8ff", 0.6, 22);
+    spark(h.x ?? def.x, h.y ?? def.y - 100, "hit"); SFX.hit(); F.hitstop = 0.05;
+    if (def.hp <= 0 && F.phase === "fight") onKO(att, def);
+    return true;
+  }
   // Буш: уклон от ботинка и контрудар
   if (def.st === "atk" && def.atk && def.atk.type === "parry" && def.atk.t >= 0.05 && def.atk.t < 0.6 && !h.unparryable) {
     bushCounter(def, att);
     return false;
   }
-  // Клинтон: «Я чувствую вашу боль» — урон уходит обратно
+  // Клинтон: «I feel your pain» — урон уходит обратно
   if (def.reflectT > 0 && !h.reflected) {
     popText("REFLECTED!", def.x, def.y - 280, GOLD);
     spark(def.x, def.y - 150, "gold");
-    return hit(def, att, Object.assign({}, h, { reflected: true, unparryable: true, unblockable: true, x: att.x, y: att.y - 150 }));
+    return hit(def, att, Object.assign({}, h, { reflected: true, unparryable: true, unblockable: true, throw: false, x: att.x, y: att.y - 150 }));
   }
   if (!h.unblockable && canBlock(def, att, h.hgt)) {
+    // Буш: «I'm the Decider» — каждый блок превращается в контратаку
+    if (def.deciderT > 0 && !h.unparryable && Math.abs(def.x - att.x) < 260) { bushCounter(def, att); return false; }
     def.crouchBlock = isCrouching(def);
     setSt(def, "block");
     def.stun = (h.stun || 0.25) * 0.7;
-    const dirB = Math.sign(def.x - att.x) || att.face;
-    def.vx = dirB * (h.push || 160) * 0.7;
+    def.vx = dir * (h.push || 160) * 0.7 * (def.id === "trump" ? 0.6 : 1);
     if (h.chip) def.hp = Math.max(1, def.hp - h.dmg * 0.12);
     att.meter = Math.min(100, att.meter + 3);
     def.meter = Math.min(100, def.meter + 4);
@@ -402,24 +502,35 @@ function hit(att, def, h) {
     F.hitstop = 0.04;
     return false;
   }
-  const scale = Math.max(0.5, 1 - att.combo * 0.1);
-  const dmg = h.dmg * att.d.power * scale;
-  def.hp = Math.max(0, def.hp - dmg);
+  let dmg = h.dmg * powerOf(att) * Math.max(0.5, 1 - att.combo * 0.1);
+  if (att.tyga) { dmg *= 1.6; att.tyga = false; popText("THERE YOU GO AGAIN!", att.x, att.y - 300, GOLD, 1.0, 26); }
+  // броня: выдерживает удар без остановки
+  if (def.armor > 0 && !h.throw) {
+    def.armor--;
+    def.hp = Math.max(F.opts.training ? 1 : 0, def.hp - dmg * 0.7);
+    def.flash = 0.12;
+    popText("ARMOR!", def.x, def.y - 260, "#ffb04a", 0.6, 24);
+    spark(h.x ?? def.x, h.y ?? def.y - 150, "block"); SFX.block();
+    F.hitstop = 0.05;
+    if (def.hp <= 0 && F.phase === "fight") { setSt(def, "down"); def.vy = -700; def.vx = dir * 380; def.onGround = false; onKO(att, def); }
+    return true;
+  }
+  def.hp = Math.max(F.opts.training ? 1 : 0, def.hp - dmg);
   def.flash = 0.12;
   att.combo++; att.comboT = 1.1;
   if (att.combo >= 2) F.comboShow = { who: att, n: att.combo, t: 1.2 };
   att.meter = Math.min(100, att.meter + (h.meter ?? 8));
   def.meter = Math.min(100, def.meter + 5);
-  const dir = Math.sign(def.x - att.x) || att.face;
   def.crouchHurt = isCrouching(def);
-  def.atk = null;
+  def.atk = null; def.armor = 0; def.ghost = false;
+  const kb = def.id === "trump" ? 0.6 : 1;
   if (def.hp <= 0 || h.knock) {
     setSt(def, "down");
-    def.vy = -700; def.vx = dir * 380; def.onGround = false;
+    def.vy = -700; def.vx = dir * 380 * kb; def.onGround = false; def.juggle = 0;
   } else {
     setSt(def, "hurt");
     def.stun = h.stun || 0.3;
-    def.vx = dir * (h.push || 160);
+    def.vx = dir * (h.push || 160) * kb;
   }
   if (h.pull && def.hp > 0) { def.vx = -dir * 1100; def.stun = 0.6; popText("GET OVER HERE!", att.x, att.y - 290, GOLD, 0.8); }
   spark(h.x ?? def.x, h.y ?? def.y - 150, "hit");
@@ -434,26 +545,70 @@ function hit(att, def, h) {
 function bushCounter(b, att) {
   popText("DODGED!", b.x, b.y - 290, GOLD);
   b.face = Math.sign(att.x - b.x) || b.face;
-  b.atk = { kind: "special", type: "counter", m: { start: 0.07, act: 0.12, rec: 0.3 }, t: 0, hit: false, fired: false, crouch: false };
+  b.atk = { kind: "special", type: "counter", m: SP_TIME.counter, t: 0, hit: false, fired: false, crouch: false };
   setSt(b, "atk");
   b.inv = 0.25;
+  b.meter = Math.min(100, b.meter + 15); // удачный уклон даёт шкалу
   F.hitstop = 0.09;
   SFX.block();
 }
 
+// Контактный удар во время спецприёма
+function contact(f, o, a, h) {
+  if (a.hit) return;
+  if ((o.st === "down" && o.onGround) || o.st === "ko" || o.inv > 0) return;
+  const dx = (o.x - f.x) * f.face;
+  if (dx < -30 || dx > h.range) return;
+  if (Math.abs(o.y - f.y) > (h.airOnly ? 400 : 160)) return;
+  if (h.hgt === "high" && isCrouching(o)) return;
+  a.hit = true;
+  hit(f, o, Object.assign({ x: o.x, y: o.y - 150, sfx: "heavy" }, h));
+}
+
 function updateSpecial(f, o, dt) {
-  const a = f.atk, m = a.m;
+  const a = f.atk, m = a.m, act = a.t >= m.start && a.t < m.start + m.act;
   if (a.type === "teleport" && !a.fired) f.alpha = clamp(1 - a.t / 0.28, 0.08, 1);
   if (!a.fired && a.t >= m.start) { a.fired = true; fireSpecial(f, o, a.type); }
-  if (a.type === "teleport" && a.fired && !a.hit && a.t >= m.start + 0.06) {
-    a.hit = true;
-    if (Math.abs(o.x - f.x) < 160) hit(f, o, { dmg: 12, hgt: "mid", stun: 0.4, push: 260, meter: 10, sfx: "heavy", x: o.x, y: o.y - 150 });
+  switch (a.type) {
+    case "teleport":
+      if (a.fired && !a.hit && a.t >= m.start + 0.06) { a.hit = true; if (Math.abs(o.x - f.x) < 160) hit(f, o, { dmg: 12, hgt: "mid", stun: 0.4, push: 260, meter: 10, sfx: "heavy", x: o.x, y: o.y - 150 }); }
+      break;
+    case "counter":
+      if (!a.hit && a.t >= m.start) { a.hit = true; if (Math.abs(o.x - f.x) < 190) hit(f, o, { dmg: 14, hgt: "mid", knock: true, unparryable: true, unblockable: true, meter: 12, sfx: "heavy", x: o.x, y: o.y - 190 }); }
+      break;
+    case "brush":
+      if (act) { a.moving = true; f.vx = f.face * 850; contact(f, o, a, { range: 100, dmg: 9, hgt: "mid", stun: 0.4, push: 260, meter: 10 }); } else a.moving = false;
+      break;
+    case "jog":
+      if (act) { a.moving = true; f.ghost = true; f.vx = f.face * 1150; if (G.time % 0.06 < 0.02) spawnDust(f.x); }
+      else { a.moving = false; f.ghost = false; }
+      break;
+    case "townhall":
+      if (act) { f.meter = Math.min(100, f.meter + 50 * dt); if (Math.random() < 0.1) spark(f.x, f.y - 260, "gold"); }
+      break;
+    case "deal":
+      if (!a.hit && a.t >= m.start) {
+        a.hit = true;
+        if (Math.abs(o.x - f.x) < 150 && canBeThrown(o)) {
+          o.x = clamp(f.x + f.face * 70, WALL_L, WALL_R);
+          hit(f, o, { dmg: 12, unblockable: true, unparryable: true, knock: true, throw: true, meter: 12, sfx: "heavy", x: o.x, y: o.y - 160 });
+          o.vx = f.face * 520; o.vy = -820;
+          popText("THE DEAL!", f.x, f.y - 300, GOLD, 0.9, 30);
+        }
+      }
+      break;
+    case "bigleague":
+      if (act) contact(f, o, a, { range: 140, dmg: 12, hgt: "mid", knock: true, meter: 12 });
+      if (a.t >= m.start + m.act) f.armor = 0;
+      break;
+    case "fastbreak":
+      if (act) { a.moving = true; f.vx = f.face * 1000; contact(f, o, a, { range: 90, dmg: 8, hgt: "low", stun: 0.5, push: 200, meter: 10 }); } else a.moving = false;
+      break;
+    case "spike":
+      if (act) contact(f, o, a, { range: 170, dmg: 12, hgt: "mid", knock: true, meter: 12, y: o.y - 220 });
+      break;
   }
-  if (a.type === "counter" && !a.hit && a.t >= m.start) {
-    a.hit = true;
-    if (Math.abs(o.x - f.x) < 190) hit(f, o, { dmg: 14, hgt: "mid", knock: true, unparryable: true, unblockable: true, meter: 12, sfx: "heavy", x: o.x, y: o.y - 190 });
-  }
-  if (a.t >= m.start + m.act + m.rec) { f.atk = null; setSt(f, "idle"); }
+  if (a.t >= m.start + m.act + m.rec) { f.atk = null; f.ghost = false; setSt(f, "idle"); }
 }
 
 function fireSpecial(f, o, type) {
@@ -462,7 +617,15 @@ function fireSpecial(f, o, type) {
     case "notes": addProj(f, { kind: "notes", x, y: f.y - 150, vx: f.face * 540, w: 70, h: 70, dmg: 9, hgt: "mid", stun: 0.35, push: 200, life: 2.6 }); break;
     case "fired": addProj(f, { kind: "fired", x, y: f.y - 120, vx: f.face * 800, w: 60, h: 160, dmg: 10, hgt: "mid", stun: 0.4, push: 320, life: 0.55 }); break;
     case "lasso": addProj(f, { kind: "lasso", x, y: f.y - 170, vx: f.face * 1150, w: 50, h: 44, dmg: 9, hgt: "high", stun: 0.6, push: 0, pull: true, life: 0.42, from: f }); break;
-    case "ball": addProj(f, { kind: "ball", x, y: f.y - 210, vx: f.face * 560, vy: -760, g: 2000, w: 46, h: 46, dmg: 12, hgt: "over", stun: 0.4, push: 220, life: 3 }); break;
+    case "ball": addProj(f, { kind: "ball", x, y: f.y - 210, vx: f.face * 560, vy: -760, g: 2000, w: 46, h: 46, dmg: 12, hgt: "over", stun: 0.4, push: 220, life: 3, bounces: 1 }); break;
+    case "hat": addProj(f, { kind: "hat", x, y: f.y - 190, vx: f.face * 720, w: 60, h: 34, dmg: 7, hgt: "high", stun: 0.35, push: 160, life: 1.5, boomerang: 0.45, from: f }); break;
+    case "beans":
+      [380, 520, 660].forEach((v) => addProj(f, { kind: "bean", x, y: f.y - 180, vx: f.face * v, vy: -620, g: 1800, w: 24, h: 24, dmg: 4, hgt: "over", stun: 0.25, push: 90, life: 2, meter: 4, color: pick(["#e74c3c", "#f1c40f", "#2ecc71", "#9b59b6", "#ff8fb1"]) }));
+      break;
+    case "tv": addProj(f, { kind: "tv", x, y: f.y - 150, vx: f.face * 600, w: 70, h: 60, dmg: 10, hgt: "mid", stun: 0.4, push: 220, life: 2.4 }); break;
+    case "decider": f.deciderT = 2.2; popText("I'M THE DECIDER!", f.x, f.y - 330, GOLD, 1.2, 26); break;
+    case "yeswecan": f.buffT = 5; popText("YES WE CAN!", f.x, f.y - 330, "#9fe8ff", 1.2, 30); spark(f.x, f.y - 150, "tv"); break;
+    case "townhall": popText("TOWN HALL", f.x, f.y - 330, GOLD, 0.8, 24); break;
     case "teleport": {
       const side = Math.sign(o.x - f.x) || 1;
       f.x = clamp(o.x + side * 100, WALL_L, WALL_R);
@@ -518,14 +681,20 @@ function updateProj(dt) {
   for (const p of F.proj) {
     p.t += dt;
     if (p.g) p.vy += p.g * dt;
+    if (p.boomerang && p.t >= p.boomerang && !p.returning) { p.returning = true; p.vx = -p.vx; p.hitDone = false; }
     p.x += p.vx * dt; p.y += p.vy * dt;
     if (p.t > p.life || p.x < -250 || p.x > W + 250) p.dead = true;
-    if (p.kind === "ball" && p.y > FLOOR - 24) { p.dead = true; spark(p.x, FLOOR - 20, "dust"); }
+    if (p.returning && Math.abs(p.x - p.owner.x) < 40) p.dead = true;
+    if ((p.kind === "ball" || p.kind === "bean") && p.y > FLOOR - p.h / 2) {
+      if (p.bounces > 0) { p.bounces--; p.y = FLOOR - p.h / 2; p.vy = -Math.abs(p.vy) * 0.55; SFX.land(); }
+      else { p.dead = true; spark(p.x, FLOOR - 20, "dust"); }
+    }
     if (p.fall && p.y > FLOOR - p.h / 2) { p.dead = true; spawnDust(p.x); F.shake = Math.max(F.shake, 9); SFX.heavy(); }
     if (p.dead) continue;
     const def = other(p.owner);
-    if (def.st !== "down" && def.st !== "ko" && def.inv <= 0 && overlap(p, fighterBox(def))) {
-      p.dead = true;
+    const hittable = !(def.st === "down" && def.onGround) && def.st !== "ko" && def.inv <= 0;
+    if (hittable && !p.hitDone && overlap(p, fighterBox(def))) {
+      if (p.boomerang) p.hitDone = true; else p.dead = true;
       hit(p.owner, def, Object.assign({}, p, { x: p.x, y: p.y }));
     }
   }
@@ -553,10 +722,32 @@ function popText(s, x, y, c = WHITE, life = 1, size = 34) { F.texts.push({ s, x:
 /* Бот                                                                */
 /* ------------------------------------------------------------------ */
 const LV = [
-  { react: 0.42, block: 0.2, aggr: 0.45, sup: 0.35 },
-  { react: 0.26, block: 0.45, aggr: 0.6, sup: 0.65 },
-  { react: 0.15, block: 0.72, aggr: 0.75, sup: 0.9 },
+  { react: 0.42, block: 0.2, aggr: 0.45, sup: 0.35, combo: 0.15 },
+  { react: 0.26, block: 0.45, aggr: 0.6, sup: 0.65, combo: 0.4 },
+  { react: 0.15, block: 0.72, aggr: 0.75, sup: 0.9, combo: 0.7 },
 ];
+// Насколько боту хочется сделать спецприём этого типа на такой дистанции (0..1)
+const AI_USE = {
+  parry: (d, o, oAtk) => (oAtk && d < 220 ? 0.6 : 0),
+  brush: (d) => (d > 140 && d < 320 ? 0.35 : 0),
+  decider: (d, o, oAtk) => (d < 260 && !oAtk ? 0.08 : 0),
+  notes: (d) => (d > 260 ? 0.45 : 0),
+  jog: (d) => (d < 200 ? 0.1 : 0),
+  townhall: (d) => (d > 450 ? 0.3 : 0),
+  fired: (d) => (d > 150 && d < 420 ? 0.4 : 0),
+  deal: (d, o) => (d < 150 ? (o.st === "block" ? 0.45 : 0.12) : 0),
+  bigleague: (d) => (d < 170 ? 0.25 : 0),
+  lasso: (d) => (d > 200 && d < 470 ? 0.5 : 0),
+  hat: (d) => (d > 220 ? 0.35 : 0),
+  beans: (d) => (d > 250 && d < 650 ? 0.3 : 0),
+  ball: (d) => (d > 260 ? 0.45 : 0),
+  fastbreak: (d) => (d > 140 && d < 360 ? 0.3 : 0),
+  yeswecan: () => 0.1,
+  teleport: (d) => (d > 240 ? 0.35 : 0),
+  tv: (d) => (d > 260 ? 0.4 : 0),
+  spike: (d, o) => (!o.onGround && d < 220 ? 0.7 : 0),
+};
+const COMBO_TYPES = ["brush", "fired", "bigleague", "fastbreak", "notes", "ball", "lasso", "tv", "deal"];
 function aiUpdate(f, o, dt) {
   const c = f.ctl, L = LV[f.level], ai = f.ai;
   for (const a of ACTIONS) c.p[a] = false;
@@ -565,13 +756,24 @@ function aiUpdate(f, o, dt) {
   const back = f.face === 1 ? "left" : "right", fwd = f.face === 1 ? "right" : "left";
   const dist = Math.abs(o.x - f.x);
   const press = (a) => { c.p[a] = true; c.h[a] = true; };
+  const useSlot = (slot) => { c.h.down = slot === "d"; c.h[fwd] = slot === "f"; c.h[back] = false; press("special"); };
+  const apply = () => { c.h.left = !!ai.hold.left; c.h.right = !!ai.hold.right; c.h.down = !!ai.hold.down; };
   // удар ногой в прыжке
   if (f.st === "jump" && !f.airAtk && f.vy > -250 && dist < 180 && Math.random() < 0.15 + L.aggr * 0.5) { press("kick"); return; }
+  // комбо: отмена попавшего удара в спецприём
+  if (f.st === "atk" && f.atk && !f.atk.aiTried && f.atk.hit && ["punch", "kick", "cpunch"].includes(f.atk.kind)) {
+    f.atk.aiTried = true;
+    if (Math.random() < L.combo) {
+      const slot = SLOTS.find((s) => f.d.specials[s] && f.cds[s] <= 0 && COMBO_TYPES.includes(f.d.specials[s].type));
+      if (slot) { useSlot(slot); return; }
+    }
+  }
+  // добивание подброшенного соперника
+  if (o.st === "down" && !o.onGround && o.juggle < 2 && dist < 150 && f.st !== "atk" && Math.random() < L.combo) { press(Math.random() < 0.5 ? "punch" : "kick"); return; }
   ai.t -= dt;
-  if (ai.t > 0) { c.h.left = !!ai.hold.left; c.h.right = !!ai.hold.right; c.h.down = !!ai.hold.down; return; }
+  if (ai.t > 0) { apply(); return; }
   ai.t = L.react * rnd(0.6, 1.4);
   ai.hold = {};
-  const apply = () => { c.h.left = !!ai.hold.left; c.h.right = !!ai.hold.right; c.h.down = !!ai.hold.down; };
 
   const threat = F.proj.find((p) => p.owner === o && !p.fall && Math.sign(f.x - p.x) === Math.sign(p.vx) && Math.abs(p.x - f.x) < 400)
               || F.proj.find((p) => p.owner === o && p.fall && Math.abs(p.x - f.x) < 220);
@@ -585,17 +787,17 @@ function aiUpdate(f, o, dt) {
   if (o.reflectT > 0 && Math.random() < L.block + 0.2) { ai.hold[back] = true; apply(); return; } // не бить в отражение
   const oAtk = o.st === "atk" && o.atk && o.atk.t < o.atk.m.start + (o.atk.m.act || 0) && o.atk.kind !== "special";
   if (oAtk && dist < 200 && Math.random() < L.block) {
-    if (f.d.special.type === "parry" && f.cd <= 0 && Math.random() < 0.6) { press("special"); return; }
+    const parrySlot = SLOTS.find((s) => f.d.specials[s] && f.d.specials[s].type === "parry" && f.cds[s] <= 0);
+    if (parrySlot && Math.random() < 0.6) { useSlot(parrySlot); return; }
     if (o.atk.kind === "kick" || o.atk.kind === "cpunch") ai.hold.down = true; else ai.hold[back] = true;
     apply(); return;
   }
   if (f.meter >= 100 && dist < 430 && Math.random() < L.sup) { press("super"); return; }
-  const sp = f.d.special.type;
-  if (f.cd <= 0) {
-    if ((sp === "notes" || sp === "ball" || sp === "fired") && dist > 260 && Math.random() < 0.45) { press("special"); return; }
-    if (sp === "lasso" && dist > 200 && dist < 470 && Math.random() < 0.5) { press("special"); return; }
-    if (sp === "teleport" && dist > 240 && Math.random() < 0.35) { press("special"); return; }
-  }
+  // бросок против блокирующего
+  if (dist < 100 && (o.st === "block" || (o.st === "idle" && Math.random() < 0.3)) && Math.random() < 0.25 + L.aggr * 0.3) { c.h[fwd] = true; press("punch"); return; }
+  // спецприёмы: выбираем по дистанции
+  const opts = SLOTS.filter((s) => f.d.specials[s] && f.cds[s] <= 0).map((s) => ({ s, w: (AI_USE[f.d.specials[s].type] || (() => 0))(dist, o, oAtk) }));
+  for (const op of shuffle(opts)) if (Math.random() < op.w) { useSlot(op.s); return; }
   if (dist > 150) {
     if (Math.random() < L.aggr) {
       ai.hold[fwd] = true;
@@ -618,12 +820,13 @@ function aiUpdate(f, o, dt) {
 /* ------------------------------------------------------------------ */
 function newFight(opts) {
   const c1 = opts.level1 == null ? new Ctl(opts.mode === "vs" ? MAPS.p1 : MAPS.solo, true) : new Ctl(null, false);
-  const c2 = opts.level2 == null ? new Ctl(MAPS.p2, false) : new Ctl(null, false);
+  const c2 = opts.level2 == null && !opts.training ? new Ctl(MAPS.p2, false) : new Ctl(null, false);
   F = {
     opts, p: [makeFighter(opts.p1, 0, c1, opts.level1), makeFighter(opts.p2, 1, c2, opts.level2)],
     arena: opts.arena, round: 1, proj: [], parts: [], texts: [],
     phase: "intro", phaseT: 0, timer: ROUND_TIME, hitstop: 0, shake: 0, slow: 1, slowT: 0,
     isBoss: !!opts.boss, altBg: false, winner: null, matchWinner: null, comboShow: null, superFlash: null, flashScreen: 0,
+    dummy: "stand",
   };
   G.paused = false;
   go("fight");
@@ -669,7 +872,11 @@ function endRound() {
 function updateFight(dt) {
   if (G.paused) return updatePause();
   if (justPressed.has("Escape") || justPressed.has("KeyP") || touch.p.pause) { G.paused = true; G.pauseSel = 0; SFX.back(); return; }
-  for (const f of F.p) { if (f.bot) aiUpdate(f, other(f), dt); else f.ctl.poll(); }
+  for (const f of F.p) {
+    if (f.bot) aiUpdate(f, other(f), dt);
+    else if (F.opts.training && f.side === 1) dummyUpdate(f, other(f), dt);
+    else f.ctl.poll();
+  }
 
   F.texts.forEach((t) => (t.t += dt));
   F.texts = F.texts.filter((t) => t.t < t.life);
@@ -687,6 +894,7 @@ function updateFight(dt) {
       if (F.phaseT > 1.8) { F.phase = "fight"; F.phaseT = 0; }
       break;
     case "fight":
+      if (F.opts.training) { trainingTick(); break; }
       F.timer -= dt;
       if (F.timer <= 0) { F.timer = 0; timeUp(); }
       break;
@@ -716,7 +924,7 @@ function updateFight(dt) {
 
   // бойцы не проходят друг сквозь друга
   const [a, b] = F.p;
-  const dashing = (f) => f.st === "atk" && f.atk && f.atk.dash;
+  const dashing = (f) => f.st === "atk" && f.atk && (f.atk.dash || f.ghost);
   if (a.onGround && b.onGround && !dashing(a) && !dashing(b) && a.st !== "down" && b.st !== "down" && a.st !== "ko" && b.st !== "ko") {
     const dx = b.x - a.x, minD = 78;
     if (Math.abs(dx) < minD) {
@@ -736,6 +944,28 @@ function updateFight(dt) {
   }
 }
 
+// Тренировка: здоровье и шкала восстанавливаются, у манекена три режима
+function trainingTick() {
+  F.timer = 99;
+  for (const f of F.p) {
+    const idle = (f.st === "idle" || f.st === "walk" || f.st === "crouch" || f.st === "block") && other(f).combo === 0;
+    if (idle && f.stT > 0.8) f.hp = f.maxHp;
+  }
+  F.p[0].meter = Math.min(100, F.p[0].meter + 0.4);
+}
+function dummyUpdate(f, o, dt) {
+  const c = f.ctl;
+  for (const a of ACTIONS) { c.p[a] = false; c.h[a] = false; }
+  if (F.dummy === "block") {
+    const away = o.x > f.x ? "left" : "right";
+    const low = o.st === "atk" && o.atk && (o.atk.kind === "kick" || o.atk.kind === "cpunch" || o.atk.type === "fastbreak");
+    if (low) c.h.down = true; else c.h[away] = true;
+  } else if (F.dummy === "cpu") {
+    f.level = 1; f.bot = true; aiUpdate(f, o, dt); f.bot = false;
+  }
+}
+const DUMMY_MODES = ["stand", "block", "cpu"];
+
 function finishMatch() {
   const humanWon = F.matchWinner === F.p[0];
   if (F.opts.mode === "arcade") {
@@ -753,15 +983,25 @@ function finishMatch() {
   }
 }
 
+function pauseItems() {
+  const it = ["RESUME", "MOVE LIST"];
+  if (F.opts.training) it.push("DUMMY: " + F.dummy.toUpperCase());
+  it.push("SOUND: " + (muted ? "OFF" : "ON"), "QUIT TO MENU");
+  return it;
+}
 function updatePause() {
   const n = nav();
-  const items = ["RESUME", "SOUND: " + (muted ? "OFF" : "ON"), "QUIT TO MENU"];
+  if (G.showMoves) { if (n.any) { G.showMoves = false; SFX.back(); } return; }
+  const items = pauseItems();
   if (n.up) { G.pauseSel = (G.pauseSel + items.length - 1) % items.length; SFX.menu(); }
   if (n.down) { G.pauseSel = (G.pauseSel + 1) % items.length; SFX.menu(); }
   const choose = (i) => {
-    if (i === 0) { G.paused = false; SFX.ok(); }
-    if (i === 1) { muted = !muted; store.set("muted", muted); SFX.ok(); }
-    if (i === 2) { G.paused = false; go("title"); SFX.back(); }
+    const s = items[i] || "";
+    if (s === "RESUME") { G.paused = false; SFX.ok(); }
+    if (s === "MOVE LIST") { G.showMoves = true; SFX.ok(); }
+    if (s.startsWith("DUMMY")) { F.dummy = DUMMY_MODES[(DUMMY_MODES.indexOf(F.dummy) + 1) % DUMMY_MODES.length]; SFX.menu(); }
+    if (s.startsWith("SOUND")) { muted = !muted; store.set("muted", muted); SFX.ok(); }
+    if (s === "QUIT TO MENU") { G.paused = false; go("title"); SFX.back(); }
   };
   if (n.click !== null) choose(n.click);
   else if (n.ok) choose(G.pauseSel);
@@ -813,20 +1053,20 @@ function updateMenus(dt) {
       if (G.screenT > 0.3 && n.any) { go("mode"); SFX.ok(); }
       break;
     case "mode": {
-      const items = 5;
+      const items = 6;
       if (n.up) { G.menuSel = (G.menuSel + items - 1) % items; SFX.menu(); }
       if (n.down) { G.menuSel = (G.menuSel + 1) % items; SFX.menu(); }
       let choice = n.click !== null ? n.click : n.ok ? G.menuSel : null;
-      if ((n.left || n.right) && G.menuSel === 3) choice = 3;
+      if ((n.left || n.right) && G.menuSel === 4) choice = 4;
       if (n.back) { go("title"); SFX.back(); }
-      if (choice === 0 || choice === 1 || choice === 2) {
-        G.mode = ["arcade", "cpu", "vs"][choice];
+      if (choice !== null && choice >= 0 && choice <= 3) {
+        G.mode = ["arcade", "cpu", "vs", "training"][choice];
         G.sel = { step: 0, cur: 0, picks: [] };
         go("select"); SFX.ok();
-      } else if (choice === 3) {
-        G.diff = n.left ? (G.diff + 2) % 3 : (G.diff + 1) % 3; store.set("diff", G.diff); SFX.menu(); G.menuSel = 3;
       } else if (choice === 4) {
-        muted = !muted; store.set("muted", muted); SFX.ok(); G.menuSel = 4;
+        G.diff = n.left ? (G.diff + 2) % 3 : (G.diff + 1) % 3; store.set("diff", G.diff); SFX.menu(); G.menuSel = 4;
+      } else if (choice === 5) {
+        muted = !muted; store.set("muted", muted); SFX.ok(); G.menuSel = 5;
       }
       break;
     }
@@ -863,7 +1103,7 @@ function updateMenus(dt) {
       if (choose !== null) {
         const arena = choose === ids.length ? pick(ids) : ids[choose];
         G.pending = { mode: G.mode, p1: G.sel.picks[0], p2: G.sel.picks[1], arena,
-          level1: null, level2: G.mode === "cpu" ? G.diff : null };
+          level1: null, level2: G.mode === "cpu" ? G.diff : null, training: G.mode === "training" };
         go("vs"); SFX.ok();
       }
       break;
@@ -926,6 +1166,7 @@ function poseOf(f) {
       else if (a.kind === "kick") { p.key = a.crouch ? "ckick" : "kick"; p.legs = inStart ? "stand" : "kick"; p.cr = a.crouch ? 1 : 0; p.lean = -0.15; }
       else if (a.kind === "cpunch") { p.key = "cpunch"; p.cr = 1; p.arms = inStart ? "guard" : "punch"; }
       else if (a.kind === "akick") { p.key = "akick"; p.legs = "akick"; p.arms = "block"; }
+      else if (a.kind === "throw") { p.key = "throw"; p.arms = inStart ? "cast" : "up"; p.lean = inStart ? 0.2 : -0.2; }
       else if (a.kind === "special") {
         p.key = "special";
         if (a.type === "parry") { p.cr = 0.55; p.lean = -0.45; p.arms = "guard"; p.key = "parry"; }
@@ -933,6 +1174,15 @@ function poseOf(f) {
         else if (a.type === "ball") p.arms = inStart ? "chest" : "shoot";
         else if (a.type === "fired") p.arms = inStart ? "wind" : "point";
         else if (a.type === "lasso") p.arms = inStart ? "twirl" : "point";
+        else if (a.type === "brush") { p.arms = "punch"; p.lean = 0.3; p.legs = "walk"; }
+        else if (a.type === "jog") { p.arms = "guard"; p.legs = "walk"; p.lean = 0.2; }
+        else if (a.type === "townhall") { p.arms = "up"; }
+        else if (a.type === "decider" || a.type === "yeswecan") { p.arms = "heart"; }
+        else if (a.type === "deal") { p.arms = inStart ? "wind" : "cast"; p.lean = 0.2; }
+        else if (a.type === "bigleague") { p.arms = inStart ? "wind" : "punch"; p.lean = inStart ? -0.2 : 0.35; }
+        else if (a.type === "hat") p.arms = inStart ? "wind" : "point";
+        else if (a.type === "fastbreak") { p.cr = 0.6; p.legs = "walk"; p.lean = 0.45; p.arms = "side"; }
+        else if (a.type === "spike") p.arms = "upper";
         else p.arms = "cast";
       } else if (a.kind === "super") {
         p.key = "super";
@@ -954,7 +1204,7 @@ function drawFighter(f) {
   const pose = poseOf(f);
   ctx.save();
   ctx.translate(Math.round(f.x), Math.round(f.y));
-  ctx.globalAlpha = f.alpha;
+  ctx.globalAlpha = f.ghost ? 0.55 : f.alpha;
   ctx.scale(f.face, 1);
   const set = SPR[f.id];
   const key = set && set[pose.key] ? pose.key : set && set.idle ? "idle" : null;
@@ -969,6 +1219,18 @@ function drawFighter(f) {
   }
   ctx.restore();
 
+  const aura = (color, alpha) => {
+    ctx.save(); ctx.globalAlpha = alpha; ctx.strokeStyle = color; ctx.lineWidth = 5;
+    ctx.beginPath(); ctx.ellipse(f.x, f.y - 120, 74, 132, 0, 0, Math.PI * 2); ctx.stroke(); ctx.restore();
+  };
+  if (f.buffT > 0) aura("#6fd3ff", 0.35 + 0.2 * Math.sin(G.time * 14));
+  if (f.deciderT > 0) aura(GOLD, Math.sin(G.time * 20) > 0 ? 0.7 : 0.2);
+  if (f.armor > 0) aura("#ff9a3d", 0.6);
+  if (f.tyga) { ctx.save(); ctx.font = `28px ${FONT}`; ctx.textAlign = "center"; ctx.fillStyle = GOLD; ctx.fillText("★", f.x, f.y - 290 + Math.sin(G.time * 6) * 4); ctx.restore(); }
+  if (f.st === "atk" && f.atk && f.atk.type === "spike" && f.atk.t >= f.atk.m.start && f.atk.t < f.atk.m.start + f.atk.m.act) {
+    ctx.save(); ctx.fillStyle = "rgba(255,42,42,.8)"; const sx = f.x + f.face * 95;
+    ctx.beginPath(); ctx.moveTo(sx - 24, f.y - 40); ctx.lineTo(sx + 24, f.y - 40); ctx.lineTo(sx + 24, f.y - 300); ctx.lineTo(sx + 44, f.y - 300); ctx.lineTo(sx, f.y - 380); ctx.lineTo(sx - 44, f.y - 300); ctx.lineTo(sx - 24, f.y - 300); ctx.closePath(); ctx.fill(); ctx.restore();
+  }
   if (f.reflectT > 0) {
     ctx.save();
     ctx.globalAlpha = 0.35 + 0.25 * Math.sin(G.time * 12);
@@ -1358,6 +1620,22 @@ function drawProj(p) {
       for (let i = 0; i < 4; i++) { ctx.beginPath(); ctx.ellipse(-dir * i * 26, 0, 20 + i * 10, 140 - i * 14, 0, dir > 0 ? -1.3 : 1.8, dir > 0 ? 1.3 : 4.5); ctx.stroke(); }
       label("!!!", 0, -160, 40, "#fff");
       break;
+    case "hat":
+      ctx.rotate(p.t * 14);
+      ctx.fillStyle = "#e8d9b0"; ctx.beginPath(); ctx.ellipse(0, 6, 32, 8, 0, 0, Math.PI * 2); ctx.fill();
+      ctx.fillRect(-16, -14, 32, 20); ctx.fillStyle = "#7a5a3a"; ctx.fillRect(-16, 0, 32, 4);
+      break;
+    case "bean":
+      ctx.rotate(p.t * 8);
+      ctx.fillStyle = p.color; ctx.beginPath(); ctx.ellipse(0, 0, 13, 9, 0, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = "rgba(255,255,255,.6)"; ctx.fillRect(-5, -5, 5, 3);
+      break;
+    case "tv":
+      ctx.rotate(Math.sin(p.t * 10) * 0.2);
+      ctx.fillStyle = "#2b2b2b"; ctx.fillRect(-35, -30, 70, 60);
+      ctx.fillStyle = Math.sin(p.t * 30) > 0 ? "#bfe9ff" : "#4fb8ff"; ctx.fillRect(-27, -22, 54, 40);
+      ctx.strokeStyle = "#888"; ctx.lineWidth = 3; ctx.beginPath(); ctx.moveTo(-8, -30); ctx.lineTo(-20, -46); ctx.moveTo(8, -30); ctx.lineTo(20, -46); ctx.stroke();
+      break;
     case "arrow":
       ctx.fillStyle = "#ff2a2a";
       ctx.beginPath(); ctx.moveTo(-14, -48); ctx.lineTo(14, -48); ctx.lineTo(14, 10); ctx.lineTo(28, 10); ctx.lineTo(0, 48); ctx.lineTo(-28, 10); ctx.lineTo(-14, 10); ctx.closePath(); ctx.fill();
@@ -1393,7 +1671,15 @@ function meterBar(f, x, flip) {
   ctx.fillRect(flip ? x - w * k : x, y - 12, w * k, 14);
   ctx.font = `16px ${FONT}`; ctx.textAlign = flip ? "right" : "left"; ctx.fillStyle = full ? GOLD : "#cfd8ff";
   ctx.fillText(full ? "SUPER READY!" : "SUPER", flip ? x - w - 10 : x + w + 10, y);
-  if (f.cd > 0) { ctx.fillStyle = "rgba(255,255,255,.5)"; ctx.fillRect(flip ? x - w : x, y - 20, w * (1 - f.cd / f.d.specialCd), 3); }
+  // три спецприёма: готовы — горят
+  SLOTS.forEach((s, i) => {
+    const sp = f.d.specials[s], k = sp ? 1 - f.cds[s] / sp.cd : 0;
+    const bx = flip ? x - w + i * 34 : x + i * 34, by = y - 40;
+    ctx.fillStyle = "rgba(0,0,0,.55)"; ctx.fillRect(bx, by, 28, 18);
+    ctx.fillStyle = k >= 1 ? "#9fe8ff" : "rgba(159,232,255,.35)"; ctx.fillRect(bx + 2, by + 16 - 14 * k, 24, 14 * k);
+    ctx.font = `11px ${FONT}`; ctx.textAlign = "center"; ctx.fillStyle = k >= 1 ? INK : "#fff";
+    ctx.fillText(["S", "F", "D"][i], bx + 14, by + 14);
+  });
 }
 function bigText(s, y, size, color, alpha = 1) {
   ctx.save();
@@ -1501,13 +1787,42 @@ function drawDummyOrSprite(f, pose) {
 
 function drawPause() {
   ctx.fillStyle = "rgba(5,6,20,.75)"; ctx.fillRect(0, 0, W, H);
-  bigText("PAUSED", 220, 80, GOLD);
-  menuList(["RESUME", "SOUND: " + (muted ? "OFF" : "ON"), "QUIT TO MENU"], G.pauseSel, W / 2, 300, 420, 64);
+  if (G.showMoves) { drawMoveList(F.p[0].d); return; }
+  bigText("PAUSED", 180, 80, GOLD);
+  menuList(pauseItems(), G.pauseSel, W / 2, 230, 420, 54, 10);
   ctx.font = `18px ${FONT}`; ctx.textAlign = "center"; ctx.fillStyle = "rgba(255,255,255,.7)";
   const help = F.opts.mode === "vs"
     ? ["1P: W A S D move, F punch, G kick, H special, T super", "2P: arrows move, J punch, K kick, L special, I super"]
     : ["Arrows move, Up/Space jump, Down crouch (blocks low)", "A punch, S kick, D special, A+S or F super. Hold back to block"];
-  help.forEach((s, i) => ctx.fillText(s, W / 2, 560 + i * 30));
+  help.forEach((s, i) => ctx.fillText(s, W / 2, 590 + i * 30));
+}
+
+function drawMoveList(d) {
+  bigText(d.name + " — MOVE LIST", 70, 40, GOLD);
+  const B = isTouch ? { p: "PUNCH", k: "KICK", s: "SPEC", f: "→", dn: "↓", up: "↑", b: "←" } : { p: "A", k: "S", s: "D", f: "→", dn: "↓", up: "↑", b: "←" };
+  const rows = [
+    [B.p, "Punch (high: ducks under it)", ""],
+    [B.k, "Kick (low: block it crouching)", ""],
+    [B.dn + " + " + B.p, "Low jab", ""],
+    [B.up + " then " + B.k, "Jump kick (hits crouching)", ""],
+    [B.f + " + " + B.p + " (close)", "Throw. Beats blocking. Press " + B.p + " to break", ""],
+    [B.s, d.specials.n.name, d.specials.n.desc],
+    [B.f + " + " + B.s, d.specials.f.name, d.specials.f.desc],
+    [B.dn + " + " + B.s, d.specials.d.name, d.specials.d.desc],
+    [isTouch ? "SUPER" : B.p + " + " + B.k, d.superMove.name, "When the SUPER meter is full"],
+    ["PASSIVE", d.passive.name, d.passive.desc],
+  ];
+  rows.forEach(([k, n, desc], i) => {
+    const y = 130 + i * 50;
+    ctx.fillStyle = i % 2 ? "rgba(20,26,60,.85)" : "rgba(30,38,80,.85)"; ctx.fillRect(80, y - 30, 1120, 46);
+    ctx.textAlign = "left";
+    ctx.font = `18px ${FONT}`; ctx.fillStyle = i >= 5 ? "#9fe8ff" : GOLD; ctx.fillText(k, 100, y);
+    ctx.font = `18px ${FONT}`; ctx.fillStyle = WHITE; ctx.fillText(n, 380, y);
+    if (desc) { ctx.font = `14px ${FONT}`; ctx.fillStyle = "rgba(255,255,255,.7)"; ctx.fillText(desc, 700, y); }
+  });
+  ctx.font = `15px ${FONT}`; ctx.textAlign = "center"; ctx.fillStyle = "rgba(255,255,255,.7)";
+  ctx.fillText("Cancel: hit with punch or kick, then press SPEC right away.  Knocked-down opponents can be hit twice in the air.", W / 2, 650);
+  ctx.fillText(isTouch ? "Tap to go back" : "Press any key to go back", W / 2, 690);
 }
 
 /* ------------------------------------------------------------------ */
@@ -1564,16 +1879,16 @@ function drawTitle() {
 function drawMode() {
   menuBg();
   drawLogo(110, 40);
-  menuList(["ARCADE", "VS CPU", "2 PLAYERS", "DIFFICULTY: " + DIFF_NAMES[G.diff], "SOUND: " + (muted ? "OFF" : "ON")], G.menuSel, W / 2, 250, 460, 62);
+  menuList(["ARCADE", "VS CPU", "2 PLAYERS", "TRAINING", "DIFFICULTY: " + DIFF_NAMES[G.diff], "SOUND: " + (muted ? "OFF" : "ON")], G.menuSel, W / 2, 230, 460, 56, 12);
   ctx.font = `16px ${FONT}`; ctx.textAlign = "center"; ctx.fillStyle = "rgba(255,255,255,.65)";
-  const hint = ["7 fights in a row. Final boss in the Oval Office", "Free fight against the computer on any arena", "Two players on one keyboard", "Affects the CPU in arcade and VS CPU", ""][G.menuSel];
+  const hint = ["7 fights in a row. Final boss in the Oval Office", "Free fight against the computer on any arena", "Two players on one keyboard", "Practice moves and combos. Pause shows the move list", "Affects the CPU in arcade and VS CPU", ""][G.menuSel];
   ctx.fillText(hint, W / 2, 650);
 }
 
 function drawSelect() {
   menuBg();
   const R = rosterVisible(), s = G.sel;
-  const who = G.mode === "arcade" ? "CHOOSE YOUR FIGHTER" : s.step === 0 ? (G.mode === "vs" ? "PLAYER 1: CHOOSE" : "CHOOSE YOUR FIGHTER") : (G.mode === "vs" ? "PLAYER 2: CHOOSE" : "CHOOSE YOUR OPPONENT");
+  const who = G.mode === "arcade" ? "CHOOSE YOUR FIGHTER" : s.step === 0 ? (G.mode === "vs" ? "PLAYER 1: CHOOSE" : "CHOOSE YOUR FIGHTER") : (G.mode === "vs" ? "PLAYER 2: CHOOSE" : G.mode === "training" ? "CHOOSE THE DUMMY" : "CHOOSE YOUR OPPONENT");
   bigText(who, 70, 40, s.step === 0 ? GOLD : "#ff7a7a");
   // сетка 3×2
   R.forEach((id, i) => {
@@ -1588,7 +1903,7 @@ function drawSelect() {
     ctx.strokeStyle = on ? (s.step === 0 ? GOLD : "#ff7a7a") : "rgba(255,255,255,.3)"; ctx.lineWidth = on ? 5 : 2; ctx.strokeRect(x, y, w, h);
     ctx.fillStyle = "rgba(0,0,0,.7)"; ctx.fillRect(x, y + h - 38, w, 38);
     label(lk ? "???" : D.fighters[id].name, x + w / 2, y + h - 12, D.fighters[id].name.length > 9 ? 15 : 22, WHITE);
-    s.picks.forEach((pid, k) => { if (pid === id) label(k === 0 ? "1P" : G.mode === "vs" ? "2P" : "CPU", x + 30, y + 30, 22, k === 0 ? GOLD : "#ff7a7a"); });
+    s.picks.forEach((pid, k) => { if (pid === id) label(k === 0 ? "1P" : G.mode === "vs" ? "2P" : G.mode === "training" ? "DUMMY" : "CPU", x + 30, y + 30, 22, k === 0 ? GOLD : "#ff7a7a"); });
     G.hits.push({ x, y, w, h, i });
   });
   // карточка бойца
@@ -1607,9 +1922,13 @@ function drawSelect() {
       ctx.fillStyle = "rgba(255,255,255,.15)"; ctx.fillRect(920, y + 8, 280, 14);
       ctx.fillStyle = GOLD; ctx.fillRect(920, y + 8, 280 * clamp((v - 0.7) / 0.5, 0.1, 1), 14);
     });
-    ctx.font = `15px ${FONT}`; ctx.fillStyle = "#9fc2ff"; ctx.fillText("SPECIAL:", 920, 410); ctx.fillStyle = WHITE; ctx.fillText(d.special.name, 1010, 410);
-    ctx.fillStyle = "#ff9a9a"; ctx.fillText("SUPER:", 920, 440); ctx.fillStyle = WHITE;
-    ctx.font = `14px ${FONT}`; wrapText(d.superMove.name, 1010, 440, 210, 20);
+    const rows = [["SPEC", d.specials.n.name, "#9fc2ff"], ["FWD+SPEC", d.specials.f.name, "#9fc2ff"], ["DOWN+SPEC", d.specials.d.name, "#9fc2ff"],
+      ["SUPER", d.superMove.name, "#ff9a9a"], ["PASSIVE", d.passive.name, GOLD]];
+    rows.forEach(([k, v, c], i) => {
+      const y = 396 + i * 34;
+      ctx.font = `13px ${FONT}`; ctx.fillStyle = c; ctx.fillText(k, 920, y);
+      ctx.font = `14px ${FONT}`; ctx.fillStyle = WHITE; ctx.fillText(v, 1030, y);
+    });
   } else {
     label("SECRET FIGHTER", 945, 330, 34, GOLD);
     ctx.font = `18px ${FONT}`; ctx.fillStyle = WHITE; ctx.textAlign = "center";

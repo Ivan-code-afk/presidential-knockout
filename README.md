@@ -39,14 +39,20 @@
 
 ## Бойцы
 
-| Боец | Спецприём | ПАНЧ |
-| --- | --- | --- |
-| Bush | Shoe Dodge: ловит удар и бьёт апперкотом | Mission Accomplished: сверху падает баннер |
-| Clinton | Sax Attack: волна нот | I Feel Your Pain: 3 секунды урон отражается |
-| Trump | You're Fired!: ударная волна вблизи | Battle of the Billionaires: клоузлайн через весь экран |
-| Reagan | Lasso: притягивает соперника | Tear Down This Wall!: сверху падает стена |
-| Obama | Three-Pointer: мяч по дуге, бьёт сверху | Anger Translator: большая волна |
-| Mr. Rating (босс) | Commercial Break: исчезает и бьёт со спины | Ratings Crash: дождь из стрелок |
+У каждого бойца три спецприёма (SPEC, вперёд + SPEC, вниз + SPEC), SUPER и особенность. Полный список — в `data.js` и в игре: пауза → MOVE LIST.
+
+| Боец | Архетип | SPEC | Вперёд + SPEC | Вниз + SPEC | Особенность |
+| --- | --- | --- | --- | --- | --- |
+| Bush | Контратаки | Shoe Dodge | Brush Stroke | I'm the Decider | Удачный уклон даёт шкалу SUPER |
+| Clinton | Камбэк | Sax Attack | Morning Jog | Town Hall | Comeback Kid: чем меньше здоровья, тем сильнее |
+| Trump | Тяжёлый борец | You're Fired! | The Deal (захват) | Big League (броня) | Heavyweight: мало отбрасывает, броски сильнее |
+| Reagan | Контроль | Lasso | Hat Toss | Jelly Beans | There You Go Again: наказывает повторы |
+| Obama | Мобильность | Three-Pointer | Fast Break | Yes We Can | Двойной прыжок |
+| Mr. Rating (босс) | Шоумен | Commercial Break | Channel Surf | Ratings Spike | Меняет «канал» арены |
+
+**Общие механики:** бросок вплотную (вперёд/назад + PUNCH) пробивает блок, вырваться — нажать PUNCH; удар можно отменить в спецприём после попадания или блока; подброшенного соперника можно ударить ещё дважды в воздухе; броня выдерживает один удар.
+
+**Тренировка:** меню TRAINING — здоровье и шкала восстанавливаются, у манекена три режима (стоит, блокирует, дерётся), в паузе MOVE LIST.
 
 ## Аркада
 
