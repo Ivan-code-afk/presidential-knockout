@@ -39,12 +39,17 @@ window.SPRITES = {
   },
   "punch_0": {
    "src": "assets/sprites/bush/punch_0.png",
-   "ax": 84,
+   "ax": 85,
    "ay": 281
   },
   "punch": {
    "src": "assets/sprites/bush/punch.png",
    "ax": 88,
+   "ay": 281
+  },
+  "hook": {
+   "src": "assets/sprites/bush/hook.png",
+   "ax": 98,
    "ay": 281
   },
   "counter": {

@@ -362,6 +362,7 @@ function noteMove(f, key) {
 
 function startAtk(f, kind, extra) {
   const m = MOVES[kind] || { start: 0.15, act: 0.1, rec: 0.3 };
+  if (kind === "punch") { f.punchAlt = G.time - (f.lastPunchAt ?? -9) < 0.9 ? !f.punchAlt : false; f.lastPunchAt = G.time; }
   f.atk = Object.assign({ kind, m, t: 0, hit: false, fired: false, crouch: f.st === "crouch" || kind === "cpunch" }, extra || {});
   setSt(f, "atk");
   if (!m.air) f.vx = 0;
@@ -1687,7 +1688,7 @@ function poseOf(f) {
     case "lose": p.key = "lose"; p.cr = 0.75; p.arms = "down"; p.lean = 0.35; break;
     case "atk": {
       const inStart = a.t < a.m.start;
-      if (a.kind === "punch") { p.key = inStart ? "punch_0" : "punch"; p.arms = inStart ? "wind" : "punch"; p.lean = inStart ? -0.1 : 0.2; }
+      if (a.kind === "punch") { p.key = inStart ? "punch_0" : (f.punchAlt ? "hook" : "punch"); p.arms = inStart ? "wind" : "punch"; p.lean = inStart ? -0.1 : 0.2; }
       else if (a.kind === "kick") { p.key = a.crouch ? "ckick" : "kick"; p.legs = inStart ? "stand" : "kick"; p.cr = a.crouch ? 1 : 0; p.lean = -0.15; }
       else if (a.kind === "cpunch") { p.key = "cpunch"; p.cr = 1; p.arms = inStart ? "guard" : "punch"; }
       else if (a.kind === "akick") { p.key = "akick"; p.legs = "akick"; p.arms = "block"; }
@@ -1792,7 +1793,7 @@ function drawFighter(f) {
   ctx.globalAlpha = f.ghost ? 0.55 : f.alpha;
   ctx.scale(f.face, 1);
   const set = SPR[f.id];
-  const FALLBACK = { throw_0: "throw", punch_0: "punch", ckick: "kick", crouch_block: "block", fall: "hurt", getup: "crouch", counter: "punch", parry: "block", super_0: "super" };
+  const FALLBACK = { hook: "punch", throw_0: "throw", punch_0: "punch", ckick: "kick", crouch_block: "block", fall: "hurt", getup: "crouch", counter: "punch", parry: "block", super_0: "super" };
   let key = null;
   if (set) {
     const tries = [pose.key, FALLBACK[pose.key], pose.key.startsWith("sp_") ? "special" : null, pose.key.startsWith("walk") ? "idle" : null, "idle"];

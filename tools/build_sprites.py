@@ -31,7 +31,7 @@ MAP = {
     "bush": {
         "idle": ("01", 0, "feet"), "crouch": ("01", 1, "feet"), "jump": ("01", 2, "air"),
         "walk_1": ("02", 0, "feet"), "walk_2": ("02", 1, "feet"), "walk_3": ("02", 2, "feet"), "walk_4": ("02", 3, "feet"),
-        "punch_0": ("03", 0, "feet"), "punch": ("03", 1, "feet"),
+        "punch_0": ("03", 0, "feet"), "punch": ("03", 1, "feet"), "hook": ("03", 2, "feet"),
         "counter": ("04", 0, "feet"), "kick": ("04", 1, "feet"), "akick": ("04", 2, "air"),
         "cpunch": ("05", 0, "feet"), "ckick": ("05", 0, "feet"), "super_0": ("05", 1, "feet"),
         "block": ("06", 0, "feet"), "crouch_block": ("06", 1, "feet"), "hurt": ("06", 2, "feet"),
