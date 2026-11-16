@@ -49,3 +49,4 @@ body.touch.fighting #touch { display: block; }
 }
 @media (orientation: portrait) { body.touch #rotate { display: flex; } }
 #btns button { font-size: 2.6vmin; }
+#btns button.vp { grid-column: span 2; width: auto; height: 9vmin; border-radius: 5vmin; background: rgba(60,140,170,.55); }

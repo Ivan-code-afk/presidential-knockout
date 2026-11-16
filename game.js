@@ -94,6 +94,37 @@ const SFX = {
   fatal()   { tone(80, 1.2, "sawtooth", 0.09, 0.5); noise(0.8, 0.1); },
 };
 
+// Голоса: только файлы из sounds/voices.js
+const VOICE_OK = new Set(window.VOICES || []), VOICE = {};
+function voice(key) {
+  if (muted || !key || !VOICE_OK.has(key)) return;
+  let a = VOICE[key];
+  if (!a) { a = VOICE[key] = new Audio(`sounds/voice/${key}.mp3`); a.preload = "auto"; }
+  try { a.currentTime = 0; const pr = a.play(); if (pr && pr.catch) pr.catch(() => {}); } catch (e) {}
+}
+// Реплика героя: {s: текст, key: имя голосового файла}
+function lineOf(id, kind) {
+  const L = D.fighters[id] && D.fighters[id].lines;
+  if (!L || !L[kind]) return null;
+  if (Array.isArray(L[kind])) { const i = Math.floor(Math.random() * L[kind].length); return { s: L[kind][i], key: `${id}_${kind}${i}` }; }
+  return { s: L[kind], key: `${id}_${kind}` };
+}
+// Перед боем: особая пара или обычные приветствия
+function makeTalk(a, b) {
+  const R = D.rivalries || [];
+  const find = (x, y, any) => R.find((r) => r.a === x && (any ? r.b === "*" : r.b === y));
+  let r = find(a, b), flip = false;
+  if (!r) { r = find(b, a); flip = !!r; }
+  if (!r) { r = find(a, b, true); }
+  if (!r) { r = find(b, a, true); flip = !!r; }
+  if (r) {
+    const tag = `${r.a}_vs_${r.b === "*" ? "any" : r.b}`;
+    const L = [{ s: r.lines[0], key: tag + "_0" }, { s: r.lines[1], key: tag + "_1" }];
+    return { rivals: true, lines: flip ? [L[1], L[0]] : L, order: flip ? [1, 0] : [0, 1] };
+  }
+  return { rivals: false, lines: [lineOf(a, "intro"), lineOf(b, "intro")], order: [0, 1] };
+}
+
 /* ------------------------------------------------------------------ */
 /* Управление: клавиатура, сенсорные кнопки, бот                      */
 /* ------------------------------------------------------------------ */
@@ -109,13 +140,13 @@ addEventListener("blur", () => { keys.clear(); if (G.screen === "fight" && !G.pa
 
 const MAPS = {
   solo: { left: ["ArrowLeft"], right: ["ArrowRight"], up: ["ArrowUp", "Space"], down: ["ArrowDown"],
-          punch: ["KeyA", "KeyJ"], kick: ["KeyS", "KeyK"], special: ["KeyD", "KeyL"], super: ["KeyF", "KeyI"] },
+          punch: ["KeyA", "KeyJ"], kick: ["KeyS", "KeyK"], special: ["KeyD", "KeyL"], super: ["KeyF", "KeyI"], assist: ["KeyE", "KeyU"] },
   p1:   { left: ["KeyA"], right: ["KeyD"], up: ["KeyW"], down: ["KeyS"],
-          punch: ["KeyF"], kick: ["KeyG"], special: ["KeyH"], super: ["KeyT"] },
+          punch: ["KeyF"], kick: ["KeyG"], special: ["KeyH"], super: ["KeyT"], assist: ["KeyR"] },
   p2:   { left: ["ArrowLeft"], right: ["ArrowRight"], up: ["ArrowUp"], down: ["ArrowDown"],
-          punch: ["KeyJ", "Numpad1"], kick: ["KeyK", "Numpad2"], special: ["KeyL", "Numpad3"], super: ["KeyI", "Numpad4"] },
+          punch: ["KeyJ", "Numpad1"], kick: ["KeyK", "Numpad2"], special: ["KeyL", "Numpad3"], super: ["KeyI", "Numpad4"], assist: ["KeyU", "Numpad5"] },
 };
-const ACTIONS = ["left", "right", "up", "down", "punch", "kick", "special", "super"];
+const ACTIONS = ["left", "right", "up", "down", "punch", "kick", "special", "super", "assist"];
 
 const touch = { h: {}, p: {} };
 const isTouch = matchMedia("(pointer: coarse)").matches || "ontouchstart" in window;
@@ -195,7 +226,9 @@ const G = {
   ladder: null, screenT: 0, msg: null,
   bossUnlocked: store.get("boss", false),
   impeachUnlocked: store.get("impeach", false),
-  clears: store.get("clears", {}),   // лучший пройденный уровень аркады для каждого бойца
+  clears: store.get("clears", {}),
+  skins: store.get("skins", {}),
+  best: store.get("best", {}),        // лучший рейтинг одобрения в аркаде   // лучший пройденный уровень аркады для каждого бойца
   loseStreak: 0,
 };
 let F = null; // текущий бой
@@ -248,8 +281,31 @@ const SP_TIME = {
 };
 const SLOTS = ["n", "f", "d"];
 
-function makeFighter(id, side, ctl, level) {
-  const d = D.fighters[id];
+// Предметы бонус-этапов ведут себя как неподвижный «боец»
+const OBJ_BASE = { full: "", speed: 0, power: 0, specials: {}, passive: { name: "", desc: "" }, superMove: { name: "", type: "none" },
+  colors: { shirt: "#888", pants: "#555", skin: "#ccc", hair: "#333", accent: "#fff", shoes: "#222" }, look: {}, win: "", fatality: "", ending: "", obj: true };
+const BONUS_DEFS = {
+  teleprompter: Object.assign({}, OBJ_BASE, { name: "TELEPROMPTER", health: 1.4, kind: "teleprompter" }),
+  ballots: Object.assign({}, OBJ_BASE, { name: "BALLOT BOX", health: 1, kind: "ballots", inv: true }),
+  hands: Object.assign({}, OBJ_BASE, { name: "CROWD", health: 1, kind: "hands", inv: true, hidden: true }),
+};
+const BONUS_TIME = 20;
+
+// Костюмы за медали: 0 — обычный, 1 — золотой (COMMANDER-IN-CHIEF), 2 — красный (IMPEACHMENT MODE)
+const SKINS = [
+  { name: "CLASSIC" },
+  { name: "GOLD EDITION", need: 2, colors: { shirt: "#e2b13c", pants: "#7a5a12", accent: "#fff3b0", shoes: "#3a2a08" } },
+  { name: "RED EDITION", need: 3, colors: { shirt: "#b3122e", pants: "#1a1a1a", accent: "#ffd54a", shoes: "#111111" } },
+];
+function skinsOpen(id) { const c = G.clears[id]; return SKINS.filter((k, i) => i === 0 || (c !== undefined && c >= k.need)).length; }
+function skinOf(id) { return Math.min((G.skins && G.skins[id]) || 0, skinsOpen(id) - 1); }
+function skinned(d, k) {
+  if (!k || !SKINS[k] || !SKINS[k].colors) return d;
+  return Object.assign({}, d, { colors: Object.assign({}, d.colors, SKINS[k].colors), skin: k });
+}
+
+function makeFighter(id, side, ctl, level, skin) {
+  const d = skinned(D.fighters[id] || BONUS_DEFS[id], skin);
   const maxHp = Math.round(100 * d.health);
   const f = {
     id, d, side, ctl, level, bot: level !== null && level !== undefined,
@@ -265,6 +321,7 @@ function resetFighter(f) {
     hp: f.maxHp, shownHp: f.maxHp, st: "idle", stT: 0, atk: null, stun: 0, cds: { n: 0, f: 0, d: 0 }, combo: 0, comboT: 0,
     inv: 0, reflectT: 0, flash: 0, walkPh: 0, airAtk: false, crouchBlock: false, crouchHurt: false, alpha: 1,
     armor: 0, buffT: 0, deciderT: 0, juggle: 0, jumps: 0, recent: [], tyga: false, lastPunchT: -9, ghost: false,
+    vpUsed: false,
   });
   f.ai = { t: 0.4, hold: {} };
 }
@@ -281,7 +338,7 @@ function canBlock(def, att, hgt) {
   return def.ctl.h[away] && hgt !== "low";
 }
 function canBeThrown(o) {
-  return o.onGround && o.inv <= 0 && ["idle", "walk", "crouch", "block", "atk"].includes(o.st) && !(o.st === "atk" && o.atk && o.atk.kind === "super");
+  return !o.d.obj && o.onGround && o.inv <= 0 && ["idle", "walk", "crouch", "block", "atk"].includes(o.st) && !(o.st === "atk" && o.atk && o.atk.kind === "super");
 }
 function powerOf(att) {
   let p = att.d.power;
@@ -324,17 +381,57 @@ function startSpecial(f, slot) {
   return true;
 }
 
+// Вице-президент: раз за раунд вбегает из-за края экрана и бьёт один раз
+function callVP(f, o) {
+  f.vpUsed = true;
+  const d = D.fighters[f.vp];
+  F.assists.push({ owner: f, target: o, d, id: f.vp, x: f.face === 1 ? -70 : W + 70, dir: f.face, st: "run", t: 0, walkPh: 0, hit: false });
+  popText("RUNNING MATE: " + d.name + "!", f.x, f.y - 300, "#9fe8ff", 1.0, 24);
+  const l = lineOf(f.vp, "intro"); if (l) voice(l.key);
+  SFX.special();
+}
+function updateAssists(dt) {
+  for (const a of F.assists) {
+    a.t += dt;
+    const o = a.target;
+    if (a.st === "run") {
+      a.x += a.dir * 950 * dt; a.walkPh += dt * 4;
+      if ((o.x - a.x) * a.dir < 110 || a.t > 2.2) { a.st = "atk"; a.t = 0; SFX.whoosh(); }
+    } else if (a.st === "atk") {
+      if (!a.hit && a.t > 0.12) {
+        a.hit = true;
+        if (F.phase === "fight" && Math.abs(o.x - a.x) < 175 && Math.abs(o.y - FLOOR) < 200)
+          hit(a.owner, o, { dmg: 8, hgt: "mid", knock: true, meter: 4, sfx: "heavy", assist: true, unparryable: true, x: o.x - a.dir * 30, y: o.y - 160 });
+      }
+      if (a.t > 0.45) { a.st = "leave"; a.t = 0; a.dir = -a.dir; }
+    } else { a.x += a.dir * 1100 * dt; a.walkPh += dt * 4; }
+  }
+  F.assists = F.assists.filter((a) => !(a.st === "leave" && (a.x < -140 || a.x > W + 140)));
+}
+function drawAssist(a) {
+  ctx.save(); ctx.translate(a.x, FLOOR); ctx.scale(a.dir * 0.85, 0.85);
+  drawDummy(a.d, { cr: 0, lean: a.st === "atk" ? 0.2 : 0.12, arms: a.st === "atk" ? "punch" : "guard", legs: a.st === "atk" ? "stand" : "walk", lying: 0, bob: 0 }, false, a.walkPh);
+  ctx.restore();
+  label("VP", a.x, FLOOR - 240, 18, "#9fe8ff");
+}
+function randomVP(...exclude) {
+  const c = D.roster.filter((id) => !exclude.includes(id) && !locked(id) && !D.fighters[id].boss);
+  return c.length ? pick(c) : null;
+}
+
 function startSuper(f) {
   f.meter = 0;
   startAtk(f, "super", { type: f.d.superMove.type, crouch: false });
   f.atk.m = { start: 0.45, act: 0.7, rec: 0.35 };
   f.inv = 0.5;
   F.superFlash = { who: f, t: 1.2 };
+  say(f, lineOf(f.id, "super"));
   F.slow = 0.35; F.slowT = 0.45;
   SFX.superGo();
 }
 
 function handleInput(f, o, c) {
+  if (c.p.assist && f.vp && !f.vpUsed && F.phase === "fight") callVP(f, o);
   const back = f.face === 1 ? "left" : "right", fwd = f.face === 1 ? "right" : "left";
   if (f.st === "jump") {
     if (c.p.up && f.id === "obama" && f.jumps < 1) { // двойной прыжок
@@ -410,7 +507,7 @@ function updateFighter(f, o, dt) {
   if (F.phase !== "fight" && (f.st === "walk" || f.st === "crouch")) { setSt(f, "idle"); f.vx = 0; }
 
   // физика
-  if (!f.onGround) f.vy += GRAV * dt;
+  if (!f.onGround) f.vy += GRAV * (F.grav || 1) * dt;
   f.x += f.vx * dt;
   f.y += f.vy * dt;
   if (f.y >= FLOOR) {
@@ -476,22 +573,24 @@ function tryHit(f, o, m, a) {
   if (m.hgt === "high" && isCrouching(o)) return; // ушёл в присед
   a.hit = true;
   hit(f, o, {
-    dmg: m.dmg, hgt: m.hgt, stun: m.stun, push: m.push, meter: m.meter, sfx: m.sfx, knock: m.knock,
+    dmg: m.dmg, hgt: m.hgt, stun: m.stun, push: m.push, meter: m.meter, sfx: m.sfx, knock: m.knock, normal: true,
     x: f.x + f.face * m.range * 0.85, y: f.y - (m.hgt === "low" ? 50 : m.air ? 120 : 165),
   });
 }
 
 function hit(att, def, h) {
+  if (def.d.obj) return objHit(att, def, h);
   if (def.inv > 0 || def.st === "ko") return false;
   const dir = Math.sign(def.x - att.x) || att.face;
   // добивание в воздухе: подброшенного соперника можно ударить ещё дважды
   if (def.st === "down") {
     if (def.onGround || def.juggle >= 2 || def.hp <= 0 || h.throw) return false;
     def.juggle++;
-    const jd = h.dmg * powerOf(att) * 0.6;
+    const jd = h.dmg * powerOf(att) * 0.6 * (F.debate && h.normal ? 0.3 : 1);
     def.hp = Math.max(F.opts.training ? 1 : 0, def.hp - jd);
     def.vy = -560; def.vx = dir * 220; def.flash = 0.12;
     att.combo++; att.comboT = 1.1; if (att.combo >= 2) F.comboShow = { who: att, n: att.combo, t: 1.2 };
+    F.stats[att.side].maxCombo = Math.max(F.stats[att.side].maxCombo, att.combo);
     att.meter = Math.min(100, att.meter + 6);
     if (def.juggle === 1) popText("JUGGLE!", def.x, def.y - 240, "#9fe8ff", 0.6, 22);
     spark(h.x ?? def.x, h.y ?? def.y - 100, "hit"); SFX.hit(); F.hitstop = 0.05;
@@ -525,6 +624,7 @@ function hit(att, def, h) {
     return false;
   }
   let dmg = h.dmg * powerOf(att) * Math.max(0.5, 1 - att.combo * 0.1);
+  if (F.debate && h.normal) dmg *= 0.3;
   if (att.tyga) { dmg *= 1.6; att.tyga = false; popText("THERE YOU GO AGAIN!", att.x, att.y - 300, GOLD, 1.0, 26); }
   // броня: выдерживает удар без остановки
   if (def.armor > 0 && !h.throw) {
@@ -540,6 +640,8 @@ function hit(att, def, h) {
   def.hp = Math.max(F.opts.training ? 1 : 0, def.hp - dmg);
   def.flash = 0.12;
   att.combo++; att.comboT = 1.1;
+  { const st = F.stats[att.side]; st.maxCombo = Math.max(st.maxCombo, att.combo);
+    if (h.throw) st.throws++; if (att.atk && att.atk.kind === "super") st.supers++; }
   if (att.combo >= 2) F.comboShow = { who: att, n: att.combo, t: 1.2 };
   att.meter = Math.min(100, att.meter + (h.meter ?? 8));
   def.meter = Math.min(100, def.meter + 5);
@@ -561,6 +663,23 @@ function hit(att, def, h) {
   F.shake = Math.max(F.shake, h.knock ? 13 : 5);
   if (navigator.vibrate && isTouch && !def.bot) navigator.vibrate(h.knock ? 40 : 15);
   if (def.hp <= 0 && F.phase === "fight") onKO(att, def);
+  return true;
+}
+
+function objHit(att, def, h) {
+  if (def.d.inv || F.bonusDone || F.phase !== "fight") return false;
+  const dmg = h.dmg * Math.max(0.6, powerOf(att)) * 1.4;
+  def.hp = Math.max(0, def.hp - dmg); def.flash = 0.12;
+  att.combo++; att.comboT = 1.1; if (att.combo >= 2) F.comboShow = { who: att, n: att.combo, t: 1.2 };
+  att.meter = Math.min(100, att.meter + 8);
+  spark(h.x ?? def.x, h.y ?? def.y - 180, "hit"); spark(def.x + rnd(-40, 40), def.y - 220, "gold");
+  (SFX[h.sfx] || SFX.hit)();
+  F.hitstop = 0.05; F.shake = Math.max(F.shake, h.knock ? 12 : 5);
+  if (def.hp <= 0) {
+    F.bonusDone = true; F.flashScreen = 0.4;
+    for (let i = 0; i < 8; i++) spark(def.x + rnd(-60, 60), def.y - rnd(60, 260), i % 2 ? "gold" : "hit");
+    popText("SMASHED!", def.x, def.y - 300, GOLD, 1.6, 48);
+  }
   return true;
 }
 
@@ -774,7 +893,7 @@ const COMBO_TYPES = ["brush", "fired", "bigleague", "fastbreak", "notes", "ball"
 function aiUpdate(f, o, dt) {
   const c = f.ctl, L = LV[f.level], ai = f.ai;
   for (const a of ACTIONS) c.p[a] = false;
-  c.h.punch = c.h.kick = c.h.special = c.h.super = c.h.up = false;
+  c.h.punch = c.h.kick = c.h.special = c.h.super = c.h.up = c.h.assist = false;
   if (F.phase !== "fight") { c.h.left = c.h.right = c.h.down = false; return; }
   const back = f.face === 1 ? "left" : "right", fwd = f.face === 1 ? "right" : "left";
   const dist = Math.abs(o.x - f.x);
@@ -807,6 +926,7 @@ function aiUpdate(f, o, dt) {
     else ai.hold.down = true;
     apply(); return;
   }
+  if (f.vp && !f.vpUsed && dist > 180 && dist < 700 && o.st !== "block" && Math.random() < 0.04 + f.level * 0.03) press("assist");
   if (o.reflectT > 0 && Math.random() < L.block + 0.2) { ai.hold[back] = true; apply(); return; } // не бить в отражение
   const oAtk = o.st === "atk" && o.atk && o.atk.t < o.atk.m.start + (o.atk.m.act || 0) && o.atk.kind !== "special";
   if (oAtk && dist < 200 && Math.random() < L.block) {
@@ -843,14 +963,32 @@ function aiUpdate(f, o, dt) {
 /* ------------------------------------------------------------------ */
 function newFight(opts) {
   const c1 = opts.level1 == null ? new Ctl(opts.mode === "vs" ? MAPS.p1 : MAPS.solo, true) : new Ctl(null, false);
-  const c2 = opts.level2 == null && !opts.training ? new Ctl(MAPS.p2, false) : new Ctl(null, false);
+  const c2 = opts.level2 == null && !opts.training && !opts.bonus ? new Ctl(MAPS.p2, false) : new Ctl(null, false);
   F = {
-    opts, p: [makeFighter(opts.p1, 0, c1, opts.level1), makeFighter(opts.p2, 1, c2, opts.level2)],
+    opts, p: [makeFighter(opts.p1, 0, c1, opts.level1, opts.skin1), makeFighter(opts.p2, 1, c2, opts.level2, opts.skin2)],
     arena: opts.arena, round: 1, proj: [], parts: [], texts: [],
-    phase: "intro", phaseT: 0, timer: ROUND_TIME, hitstop: 0, shake: 0, slow: 1, slowT: 0,
+    phase: "intro", phaseT: 0, timer: ROUND_TIME, roundTime: ROUND_TIME, winsNeeded: WINS_NEEDED, hitstop: 0, shake: 0, slow: 1, slowT: 0,
     isBoss: !!opts.boss, altBg: false, winner: null, matchWinner: null, comboShow: null, superFlash: null, flashScreen: 0,
-    dummy: "stand",
+    dummy: "stand", bubbles: [], assists: [], haz: [], evT: rnd(8, 13), freezeT: 0, adDone: false,
+    stats: [0, 1].map(() => ({ maxCombo: 0, supers: 0, throws: 0, perfect: 0, fatal: false })),
+    approval: null,
   };
+  if (opts.bonus) {
+    F.bonus = opts.bonus; F.roundTime = F.timer = BONUS_TIME; F.winsNeeded = 1;
+    F.items = []; F.score = 0; F.spawnT = 1.0; F.bonusDone = false; F.bonusPts = 0;
+    if (opts.bonus === "ballots") F.p[1].x = WALL_R - 40;
+    if (opts.bonus === "hands") F.p[1].x = W / 2;
+  }
+  if (opts.daily) {
+    const m = opts.daily; F.mods = m;
+    if (m === "filibuster") { F.roundTime = F.timer = 99; for (const f of F.p) { f.maxHp = Math.round(f.maxHp * 1.5); f.hp = f.shownHp = f.maxHp; } }
+    if (m === "snap") { F.roundTime = F.timer = 30; F.winsNeeded = 1; }
+    if (m === "swing") F.grav = 0.55;
+    if (m === "tuesday") F.meterMul = 3;
+    if (m === "debate") F.debate = true;
+    if (m === "scandal") F.drain = true;
+  }
+  F.p[0].vp = opts.vp1 || null; F.p[1].vp = opts.training ? null : (opts.vp2 || null);
   if (opts.hpMult) { const b = F.p[1]; b.maxHp = Math.round(b.maxHp * opts.hpMult); b.hp = b.shownHp = b.maxHp; }
   G.paused = false;
   go("fight");
@@ -874,23 +1012,43 @@ function timeUp() {
 function endRound() {
   const w = F.winner;
   if (w) w.wins++;
-  if (w && w.wins >= WINS_NEEDED) {
+  if (w && !(w.wins >= F.winsNeeded) && w.hp >= w.maxHp) F.stats[w.side].perfect++;
+  if (w && w.wins >= F.winsNeeded) {
     F.matchWinner = w;
     F.phase = "finish"; F.phaseT = 0;
-    if (w.hp >= w.maxHp) popText(D.texts.perfect, W / 2, 300, GOLD, 1.6, 48);
+    if (w.hp >= w.maxHp) { popText(D.texts.perfect, W / 2, 300, GOLD, 1.6, 48); F.stats[w.side].perfect++; }
     return;
   }
   if (F.round >= MAX_ROUNDS) {
     const [a, b] = F.p;
     F.matchWinner = a.wins > b.wins ? a : b.wins > a.wins ? b : (a.hp >= b.hp ? a : b);
-    F.phase = "over"; F.phaseT = 0;
+    enterOver();
     return;
   }
   F.round++;
   for (const f of F.p) { const m = f.meter; resetFighter(f); f.meter = m; }
-  F.proj = []; F.timer = ROUND_TIME; F.winner = null;
+  F.proj = []; F.assists = []; F.haz = []; F.adDone = false; F.evT = rnd(8, 13); F.timer = F.roundTime; F.winner = null;
   F.phase = "intro"; F.phaseT = 0;
   SFX.round();
+}
+
+// Рейтинг одобрения за бой (для каждой стороны)
+function approvalOf(side) {
+  const s = F.stats[side], f = F.p[side], won = F.matchWinner === f;
+  const a = 28 + (won ? 22 : 0) + s.perfect * 7 + Math.min(s.maxCombo, 10) * 2 + s.supers * 4 + s.throws +
+    (s.fatal ? 8 : 0) + Math.round(10 * f.hp / f.maxHp) + (won ? Math.round(F.timer / 12) : 0);
+  return clamp(Math.round(a), 3, 97);
+}
+function enterOver() {
+  F.phase = "over"; F.phaseT = 0; SFX.win();
+  F.approval = [approvalOf(0), approvalOf(1)];
+  say(F.matchWinner, lineOf(F.matchWinner.id, "win"));
+}
+function say(f, line, life = 2.2) {
+  if (!line || !F) return;
+  F.bubbles = F.bubbles.filter((b) => b.f !== f);
+  F.bubbles.push({ f, s: line.s, t: 0, life });
+  voice(line.key);
 }
 
 function updateFight(dt) {
@@ -904,12 +1062,15 @@ function updateFight(dt) {
 
   F.texts.forEach((t) => (t.t += dt));
   F.texts = F.texts.filter((t) => t.t < t.life);
+  F.bubbles.forEach((b) => (b.t += dt));
+  F.bubbles = F.bubbles.filter((b) => b.t < b.life);
   if (F.superFlash) { F.superFlash.t -= dt; if (F.superFlash.t <= 0) F.superFlash = null; }
   if (F.comboShow) { F.comboShow.t -= dt; if (F.comboShow.t <= 0) F.comboShow = null; }
   F.flashScreen = Math.max(0, F.flashScreen - dt);
   F.shake = Math.max(0, F.shake - dt * 40);
 
   if (F.hitstop > 0) { F.hitstop -= dt; return; }
+  if (F.freezeT > 0) { F.freezeT -= dt; if (F.freezeT <= 0) popText("AND WE'RE BACK!", W / 2, 260, GOLD, 1.2, 44); return; }
   if (F.slowT > 0) { F.slowT -= dt; dt *= F.slow; }
   F.phaseT += dt;
 
@@ -919,6 +1080,7 @@ function updateFight(dt) {
       break;
     case "fight":
       if (F.opts.training) { trainingTick(); break; }
+      if (F.bonus) { bonusTick(dt); break; }
       F.timer -= dt;
       if (F.timer <= 0) { F.timer = 0; timeUp(); }
       break;
@@ -930,12 +1092,16 @@ function updateFight(dt) {
       const w = F.matchWinner, l = other(w);
       if (l.st !== "ko" && l.st !== "down") { setSt(l, "lose"); l.vx = 0; }
       const press = w.bot ? (F.phaseT > 0.9 && Math.random() < 0.02) : (w.ctl.p.special || w.ctl.p.super);
-      if (press) { F.phase = "fatality"; F.phaseT = 0; SFX.fatal(); F.flashScreen = 0.5; }
-      else if (F.phaseT > 2.6) { F.phase = "over"; F.phaseT = 0; SFX.win(); }
+      if (press) { F.phase = "fatality"; F.phaseT = 0; SFX.fatal(); F.flashScreen = 0.5; F.stats[w.side].fatal = true; }
+      else if (F.phaseT > 2.6) enterOver();
       break;
     }
     case "fatality":
-      if (F.phaseT > 4.2) { F.phase = "over"; F.phaseT = 0; SFX.win(); }
+      if (F.phaseT > 4.2) enterOver();
+      break;
+    case "bonusover":
+      if (F.phaseT > 0.5 && F.p[0].st !== "win" && F.p[0].onGround && !F.p[0].atk) setSt(F.p[0], "win");
+      if (F.phaseT > 2.6) finishMatch();
       break;
     case "over":
       if (F.phaseT > 0.6 && F.matchWinner.st !== "win") setSt(F.matchWinner, "win");
@@ -943,13 +1109,16 @@ function updateFight(dt) {
       break;
   }
 
+  const m0 = [F.p[0].meter, F.p[1].meter];
+  if (F.drain && F.phase === "fight") for (const f of F.p) f.hp = Math.max(1, f.hp - 1.3 * dt);
   updateFighter(F.p[0], F.p[1], dt);
-  updateFighter(F.p[1], F.p[0], dt);
+  if (!F.p[1].d.obj) updateFighter(F.p[1], F.p[0], dt);
+  else { F.p[1].flash = Math.max(0, F.p[1].flash - dt); F.p[1].shownHp += (F.p[1].hp - F.p[1].shownHp) * Math.min(1, dt * 3); }
 
   // бойцы не проходят друг сквозь друга
   const [a, b] = F.p;
   const dashing = (f) => f.st === "atk" && f.atk && (f.atk.dash || f.ghost);
-  if (a.onGround && b.onGround && !dashing(a) && !dashing(b) && a.st !== "down" && b.st !== "down" && a.st !== "ko" && b.st !== "ko") {
+  if (a.onGround && b.onGround && !dashing(a) && !dashing(b) && !b.d.hidden && a.st !== "down" && b.st !== "down" && a.st !== "ko" && b.st !== "ko") {
     const dx = b.x - a.x, minD = 78;
     if (Math.abs(dx) < minD) {
       const push = (minD - Math.abs(dx)) / 2, s = dx >= 0 ? 1 : -1;
@@ -957,6 +1126,9 @@ function updateFight(dt) {
     }
   }
   updateProj(dt);
+  updateAssists(dt);
+  updateHazards(dt);
+  if (F.meterMul) F.p.forEach((f, i) => { const d = f.meter - m0[i]; if (d > 0) f.meter = Math.min(100, f.meter + d * (F.meterMul - 1)); });
   for (const p of F.parts) { p.t += dt; p.x += p.vx * dt; p.y += p.vy * dt; p.vy += 900 * dt; }
   F.parts = F.parts.filter((p) => p.t < p.life);
 
@@ -965,6 +1137,190 @@ function updateFight(dt) {
     F.altBg = true; F.flashScreen = 0.6;
     popText(D.texts.adBreak, W / 2, 260, "#6fd3ff", 2, 56);
     SFX.special();
+  }
+}
+
+// Живые арены: случайные события
+const ARENA_EVENTS = {
+  fair: "pig", carnival: "pig", texas: "tumbleweed", boxing: "chair", wrestling: "chair",
+  vegas: "coins", tvshow: "adbreak", ballroom: "cork", congress: "papers",
+};
+function hazardHit(f, h) {
+  if (f.d.obj || f.inv > 0 || f.st === "ko" || f.st === "down" || F.phase !== "fight") return false;
+  const away = h.dir > 0 ? "right" : "left";
+  if (h.blockable && f.onGround && ["idle", "walk", "crouch", "block"].includes(f.st) && (f.ctl.h[away] || (f.bot && Math.random() < 0.5))) {
+    spark(f.x, f.y - 140, "block"); SFX.block(); return true;
+  }
+  f.hp = Math.max(F.opts.training ? 1 : 0, f.hp - h.dmg); f.flash = 0.12;
+  f.atk = null; f.armor = 0; f.ghost = false;
+  if (f.hp <= 0 || h.knock) { setSt(f, "down"); f.vy = -620; f.vx = h.dir * 300; f.onGround = false; f.juggle = 0; }
+  else { setSt(f, "hurt"); f.stun = 0.3; f.vx = h.dir * 160; }
+  spark(f.x, f.y - 120, "hit"); SFX.hit(); F.shake = Math.max(F.shake, 8);
+  if (f.hp <= 0) onKO(other(f), f);
+  return true;
+}
+function startArenaEvent() {
+  const kind = ARENA_EVENTS[D.arenas[F.arena].theme];
+  if (!kind) return;
+  const dir = Math.random() < 0.5 ? 1 : -1, tgt = pick(F.p);
+  const ev = { kind, t: 0, dir, hitSet: [] };
+  if (kind === "pig" || kind === "tumbleweed") {
+    Object.assign(ev, { x: dir > 0 ? -70 : W + 70, y: FLOOR, speed: kind === "pig" ? 470 : 380 });
+    popText(kind === "pig" ? "LOOSE PIG!" : "TUMBLEWEED!", W / 2, 180, GOLD, 1.2, 32);
+  } else if (kind === "chair" || kind === "papers") {
+    Object.assign(ev, { x: clamp(tgt.x + rnd(-50, 50), WALL_L + 30, WALL_R - 30), y: -60, warn: 0.9 });
+    popText(kind === "chair" ? "FOLDING CHAIR!" : "ORDER! ORDER!", W / 2, 180, GOLD, 1.2, 32);
+  } else if (kind === "coins") {
+    Object.assign(ev, { coins: [], left: 2.2 });
+    popText("JACKPOT!", W / 2, 180, GOLD, 1.4, 44);
+  } else if (kind === "cork") {
+    Object.assign(ev, { x: dir > 0 ? -30 : W + 30, y: FLOOR - pick([150, 60]), speed: 760 });
+    popText("POP!", dir > 0 ? 120 : W - 120, FLOOR - 220, GOLD, 0.8, 34);
+  } else if (kind === "adbreak") {
+    if (F.adDone) return;
+    F.adDone = true; F.freezeT = 1.7; ev.done = true;
+    SFX.special();
+  }
+  F.haz.push(ev);
+}
+function updateHazards(dt) {
+  if (F.opts.training || F.bonus || F.phase !== "fight") return;
+  F.evT -= dt;
+  if (F.evT <= 0 && !F.haz.length) { F.evT = rnd(10, 16); startArenaEvent(); }
+  for (const e of F.haz) {
+    e.t += dt;
+    if (e.kind === "pig" || e.kind === "tumbleweed") {
+      e.x += e.dir * e.speed * dt;
+      if (e.kind === "tumbleweed") e.y = FLOOR - Math.abs(Math.sin(e.t * 6)) * 60;
+      for (const f of F.p) if (!e.hitSet.includes(f) && Math.abs(f.x - e.x) < 46 && f.y > FLOOR - 50 && FLOOR - e.y < 70) {
+        e.hitSet.push(f); hazardHit(f, { dmg: 5, knock: true, dir: e.dir, blockable: false });
+      }
+      if (e.x < -120 || e.x > W + 120) e.done = true;
+    } else if (e.kind === "chair" || e.kind === "papers") {
+      if (e.t > e.warn) {
+        e.y += 2200 * dt;
+        if (e.y >= FLOOR - 30 && !e.landed) {
+          e.landed = true; e.y = FLOOR - 30; F.shake = Math.max(F.shake, e.kind === "chair" ? 10 : 4);
+          for (const f of F.p) if (Math.abs(f.x - e.x) < 70 && f.y > FLOOR - 200)
+            hazardHit(f, { dmg: e.kind === "chair" ? 7 : 3, knock: e.kind === "chair", dir: f.x >= e.x ? 1 : -1 });
+          spawnDust(e.x);
+        }
+      }
+      if (e.landed && e.t > e.warn + 1.2) e.done = true;
+    } else if (e.kind === "coins") {
+      e.left -= dt;
+      if (e.left > 0 && Math.random() < 0.5) e.coins.push({ x: rnd(WALL_L, WALL_R), y: -20, vy: rnd(300, 500), got: false });
+      for (const c of e.coins) {
+        c.y += c.vy * dt;
+        for (const f of F.p) if (!c.got && Math.abs(f.x - c.x) < 50 && c.y > f.y - 260 && c.y < f.y) { c.got = true; f.meter = Math.min(100, f.meter + 4); SFX.menu(); }
+      }
+      e.coins = e.coins.filter((c) => !c.got && c.y < FLOOR + 20);
+      if (e.left <= 0 && !e.coins.length) e.done = true;
+    } else if (e.kind === "cork") {
+      e.x += e.dir * e.speed * dt;
+      for (const f of F.p) if (!e.done && Math.abs(f.x - e.x) < 40 && Math.abs((f.y - (f.st === "crouch" ? 60 : 130)) - e.y) < 90) {
+        e.done = true; hazardHit(f, { dmg: 4, knock: false, dir: e.dir, blockable: true });
+      }
+      if (e.x < -60 || e.x > W + 60) e.done = true;
+    }
+  }
+  F.haz = F.haz.filter((e) => !e.done);
+}
+function drawHazards() {
+  for (const e of F.haz) {
+    ctx.save();
+    if (e.kind === "pig") {
+      ctx.translate(e.x, FLOOR); ctx.scale(e.dir, 1);
+      const leg = Math.sin(e.t * 30) * 6;
+      ctx.fillStyle = "#e88aa0"; ctx.fillRect(-26 + leg, -22, 8, 22); ctx.fillRect(14 - leg, -22, 8, 22);
+      ctx.beginPath(); ctx.ellipse(0, -40, 40, 26, 0, 0, Math.PI * 2); ctx.fill();
+      ctx.beginPath(); ctx.arc(38, -46, 18, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = "#d46b86"; ctx.beginPath(); ctx.ellipse(54, -44, 7, 9, 0, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = INK; ctx.fillRect(40, -54, 4, 4);
+    } else if (e.kind === "tumbleweed") {
+      ctx.translate(e.x, e.y - 34); ctx.rotate(e.t * 8 * e.dir);
+      ctx.strokeStyle = "#a07a3c"; ctx.lineWidth = 4;
+      for (let i = 0; i < 7; i++) { ctx.beginPath(); ctx.arc(0, 0, 18 + (i % 3) * 7, i, i + 2.4); ctx.stroke(); }
+    } else if (e.kind === "chair" || e.kind === "papers") {
+      if (!e.landed && e.t < e.warn + 0.4) {
+        const k = clamp(e.t / e.warn, 0, 1);
+        ctx.fillStyle = `rgba(255,60,60,${0.25 + 0.3 * Math.sin(G.time * 20)})`;
+        ctx.beginPath(); ctx.ellipse(e.x, FLOOR + 3, 30 + 30 * k, 9, 0, 0, Math.PI * 2); ctx.fill();
+      }
+      ctx.translate(e.x, e.y);
+      if (e.kind === "chair") {
+        ctx.strokeStyle = "#9aa3ad"; ctx.lineWidth = 6;
+        ctx.strokeRect(-24, -60, 48, 34); ctx.beginPath(); ctx.moveTo(-24, -26); ctx.lineTo(-30, 26); ctx.moveTo(24, -26); ctx.lineTo(30, 26); ctx.moveTo(-26, 0); ctx.lineTo(26, 0); ctx.stroke();
+      } else {
+        ctx.fillStyle = "#f4f1e6"; for (let i = 0; i < 4; i++) ctx.fillRect(-26 + (i % 2) * 4, -8 - i * 7, 52, 6);
+        ctx.strokeStyle = "#999"; ctx.lineWidth = 1; ctx.strokeRect(-26, -30, 56, 30);
+      }
+    } else if (e.kind === "coins") {
+      for (const c of e.coins) { ctx.fillStyle = GOLD; ctx.beginPath(); ctx.ellipse(c.x, c.y, 10 * Math.abs(Math.sin(G.time * 8 + c.x)) + 3, 12, 0, 0, Math.PI * 2); ctx.fill(); ctx.strokeStyle = "#b8860b"; ctx.lineWidth = 2; ctx.stroke(); }
+    } else if (e.kind === "cork") {
+      ctx.translate(e.x, e.y); ctx.fillStyle = "#c08a4a"; ctx.fillRect(-12, -8, 24, 16);
+      ctx.fillStyle = "rgba(255,240,180,.7)"; for (let i = 1; i < 5; i++) ctx.fillRect(-e.dir * i * 16 - 4, rnd(-10, 6), 6, 6);
+    }
+    ctx.restore();
+  }
+}
+
+// Бонус-этапы
+function strikeZone(p) {
+  if (p.st !== "atk" || !p.atk) return null;
+  const a = p.atk, m = a.m || {};
+  const act = a.t >= (m.start || 0) - 0.02 && a.t < (m.start || 0) + (m.act || 0.15) + 0.06;
+  if (!act) return null;
+  const hy = a.kind === "kick" ? 70 : a.kind === "cpunch" ? 80 : a.kind === "akick" ? 110 : 160;
+  return { x: p.x + p.face * 75, y: p.y - hy, r: a.kind === "special" || a.kind === "super" ? 150 : 100 };
+}
+function bonusTick(dt) {
+  const p = F.p[0], o = F.p[1];
+  F.timer -= dt; F.spawnT -= dt;
+  if (F.bonus === "ballots") {
+    if (F.spawnT <= 0) {
+      F.spawnT = rnd(0.5, 0.85);
+      F.items.push({ x: o.x - 60, y: FLOOR - pick([70, 160, 230]), vx: -rnd(380, 540), vy: 0, t: 0, hit: false, rot: 0 });
+    }
+    const z = strikeZone(p);
+    for (const it of F.items) {
+      it.t += dt; it.x += it.vx * dt; it.y += it.vy * dt;
+      if (it.hit) { it.vy += 1400 * dt; it.rot += dt * 14; continue; }
+      let struck = z && Math.abs(it.x - z.x) < z.r && Math.abs(it.y - z.y) < z.r * 0.9;
+      if (!struck) for (const pr of F.proj) if (pr.owner === p && Math.hypot(pr.x - it.x, pr.y - it.y) < 70) struck = true;
+      if (struck) { it.hit = true; it.vx = rnd(500, 800); it.vy = -rnd(400, 700); F.score++; spark(it.x, it.y, "gold"); SFX.hit(); continue; }
+      if (Math.abs(it.x - p.x) < 36 && it.y > p.y - 260 && it.y < p.y) {
+        it.dead = true; popText("MISSED!", p.x, p.y - 290, "#ff9a9a", 0.5, 20);
+      }
+    }
+    F.items = F.items.filter((it) => !it.dead && it.x > -60 && it.x < W + 60 && it.y < H + 60);
+    F.bonusPts = Math.min(8, Math.floor(F.score / 3));
+  } else if (F.bonus === "hands") {
+    if (F.spawnT <= 0 && F.items.filter((h) => !h.done).length < 2) {
+      F.spawnT = rnd(0.5, 0.9);
+      let x = 0; for (let k = 0; k < 8; k++) { x = rnd(WALL_L + 60, WALL_R - 60); if (Math.abs(x - p.x) > 220) break; }
+      F.items.push({ x, t: 0, life: rnd(1.6, 2.2), done: false, skin: pick(["#f1c6a0", "#d9a07a", "#a8714f", "#7a4b30", "#e8b48f"]) });
+    }
+    const near = F.items.filter((h) => !h.done).sort((a, b) => Math.abs(a.x - p.x) - Math.abs(b.x - p.x))[0];
+    if (near) o.x = near.x; // герой поворачивается к ближайшей руке
+    const press = p.ctl.p.punch || p.ctl.p.kick;
+    for (const h of F.items) {
+      h.t += dt;
+      if (!h.done && press && Math.abs(h.x - p.x) < 95) {
+        h.done = true; h.t = 0; F.score++; SFX.ok();
+        popText(pick(["HANDSHAKE!", "NICE TO MEET YOU!", "VOTE FOR ME!", "THANK YOU!"]), h.x, FLOOR - 120, GOLD, 0.7, 20);
+      }
+    }
+    F.items = F.items.filter((h) => (h.done ? h.t < 0.4 : h.t < h.life));
+    F.bonusPts = Math.min(8, Math.floor(F.score / 2));
+  } else {
+    F.bonusPts = F.bonusDone ? 3 + Math.round(F.timer / 4) : Math.round(4 * (1 - o.hp / o.maxHp));
+  }
+  if (F.timer <= 0 || F.bonusDone) {
+    F.timer = Math.max(0, F.timer);
+    F.phase = "bonusover"; F.phaseT = 0;
+    if (!F.bonusDone) SFX.ko(); else SFX.win();
+    p.atk = null; if (p.onGround) setSt(p, "idle");
   }
 }
 
@@ -991,13 +1347,24 @@ function dummyUpdate(f, o, dt) {
 const DUMMY_MODES = ["stand", "block", "cpu"];
 
 function finishMatch() {
+  if (F.opts.daily) { finishDaily(); return; }
+  if (F.opts.bonus) {
+    G.ladder.bonus += F.bonusPts; G.ladder.idx++;
+    go("ladder");
+    return;
+  }
   const humanWon = F.matchWinner === F.p[0];
   if (F.opts.mode === "arcade") {
     if (humanWon) {
       G.loseStreak = 0;
+      if (F.approval) G.ladder.approvals.push(F.approval[0]);
       G.ladder.idx++;
       if (G.ladder.idx >= G.ladder.list.length) {
         const L = G.ladder, unl = [];
+        const avg = L.approvals.reduce((a, b) => a + b, 0) / Math.max(1, L.approvals.length);
+        L.final = clamp(Math.round(avg + L.bonus), 1, 99);
+        G.newBest = L.final > (G.best[L.pid] || 0);
+        if (G.newBest) { G.best[L.pid] = L.final; store.set("best", G.best); }
         if (!G.bossUnlocked && L.pid !== "rating") unl.push("NEW FIGHTER UNLOCKED: MR. RATING");
         G.bossUnlocked = true; store.set("boss", true);
         if (L.diff >= 2 && !G.impeachUnlocked) { G.impeachUnlocked = true; store.set("impeach", true); unl.push("SECRET DIFFICULTY UNLOCKED: IMPEACHMENT MODE"); }
@@ -1014,6 +1381,8 @@ function finishMatch() {
     }
   } else {
     G.lastWinner = F.matchWinner;
+    G.lastApproval = F.approval ? F.approval[F.opts.mode === "vs" ? F.matchWinner.side : 0] : null;
+    G.lastOpts = F.opts;
     go("result");
   }
 }
@@ -1071,19 +1440,53 @@ function makeLadder(pid) {
   const b = D.arcade.boss;
   list.push({ opp: b.fighter, arena: b.arena, level: G.diff === 3 ? 3 : clamp(b.level + G.diff - 1, 1, 2), tour: 4, boss: true,
     hpMult: G.diff === 3 ? 1.3 : 1 });
-  return { pid, list, idx: 0, diff: G.diff };
+  // бонус-этапы после 2-го, 4-го и 6-го боя
+  [["hands", 6], ["ballots", 4], ["teleprompter", 2]].forEach(([k, at]) => list.splice(at, 0, { bonus: k, tour: list[at - 1].tour, arena: list[at - 1].arena }));
+  for (const e of list) e.vp = e.boss || e.bonus ? null : randomVP(e.opp, pid);
+  return { pid, list, idx: 0, diff: G.diff, approvals: [], bonus: 0, vp: (G.vps && G.vps[0]) || null };
 }
 
 function ladderOpts() {
   const L = G.ladder, s = L.list[L.idx];
+  if (s.bonus) return { mode: "arcade", p1: L.pid, p2: s.bonus, arena: s.arena, level1: null, level2: null, bonus: s.bonus, skin1: skinOf(L.pid) };
   let level = s.level, hpMult = s.hpMult || 1;
   // INTERN: после двух поражений подряд бот слабеет
   if (L.diff === 0 && G.loseStreak >= 2) { level = 0; hpMult *= G.loseStreak >= 3 ? 0.75 : 0.85; }
-  return { mode: "arcade", p1: L.pid, p2: s.opp, arena: s.arena, level1: null, level2: level, boss: !!s.boss, hpMult };
+  return { mode: "arcade", p1: L.pid, p2: s.opp, arena: s.arena, level1: null, level2: level, boss: !!s.boss, hpMult, vp1: L.vp, vp2: s.vp, skin1: skinOf(L.pid) };
 }
 function startLadderFight() { newFight(ladderOpts()); }
 
+/* Задание дня */
+function dayStr(off = 0) { const d = new Date(Date.now() + off * 864e5); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`; }
+function seeded(str) { let h = 2166136261; for (const c of str) { h ^= c.charCodeAt(0); h = Math.imul(h, 16777619); } return () => { h += 0x6D2B79F5; let t = h; t = Math.imul(t ^ (t >>> 15), t | 1); t ^= t + Math.imul(t ^ (t >>> 7), t | 61); return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }; }
+function dailySetup() {
+  const date = dayStr(), r = seeded("pk" + date), pk = (a) => a[Math.floor(r() * a.length)];
+  const pool = D.roster.filter((id) => !D.fighters[id].boss);
+  const mod = pk(D.daily), p1 = pk(pool), p2 = pk(pool.filter((x) => x !== p1));
+  const arena = pk(Object.keys(D.arenas).filter((k) => k !== "oval"));
+  const rest = pool.filter((x) => x !== p1 && x !== p2);
+  const vp1 = pk(rest), vp2 = pk(rest.filter((x) => x !== vp1)) || null;
+  const rec = store.get("daily", {}), st = store.get("streak", { last: null, n: 0 });
+  const alive = st.last === date || st.last === dayStr(-1);
+  return { date, mod, p1, p2, arena, vp1, vp2, best: rec.date === date ? rec.best : null, streak: alive ? st.n : 0 };
+}
+function dailyOpts() {
+  const d = G.daily;
+  return { mode: "daily", p1: d.p1, p2: d.p2, arena: d.arena, level1: null, level2: 1, vp1: d.vp1, vp2: d.vp2, daily: d.mod.id, skin1: skinOf(d.p1) };
+}
+function finishDaily() {
+  const d = G.daily, won = F.matchWinner === F.p[0], ap = F.approval ? F.approval[0] : 0;
+  const rec = store.get("daily", {});
+  if (won && (rec.date !== d.date || (rec.best || 0) < ap)) store.set("daily", { date: d.date, best: ap });
+  let st = store.get("streak", { last: null, n: 0 });
+  if (won && st.last !== d.date) { st = { last: d.date, n: st.last === dayStr(-1) ? st.n + 1 : 1 }; store.set("streak", st); }
+  G.daily = dailySetup();
+  G.dailyResult = { date: d.date, mod: d.mod.name, p1: d.p1, won, approval: ap, streak: won ? st.n : G.daily.streak };
+  go("dailyres");
+}
+
 function rosterVisible() { return D.roster; }
+function vpCandidates(side) { return D.roster.filter((id) => id !== G.sel.picks[side] && !locked(id)); }
 function locked(id) { return D.fighters[id].boss && !G.bossUnlocked; }
 
 function updateMenus(dt) {
@@ -1094,25 +1497,29 @@ function updateMenus(dt) {
       if (G.screenT > 0.3 && n.any) { go("mode"); SFX.ok(); }
       break;
     case "mode": {
-      const items = 6;
+      const items = 7;
       if (n.up) { G.menuSel = (G.menuSel + items - 1) % items; SFX.menu(); }
       if (n.down) { G.menuSel = (G.menuSel + 1) % items; SFX.menu(); }
       let choice = n.click !== null ? n.click : n.ok ? G.menuSel : null;
-      if ((n.left || n.right) && G.menuSel === 4) choice = 4;
+      if ((n.left || n.right) && G.menuSel === 5) choice = 5;
       if (n.back) { go("title"); SFX.back(); }
-      if (choice !== null && choice >= 0 && choice <= 3) {
-        G.mode = ["arcade", "cpu", "vs", "training"][choice];
+      if (choice === 1) { G.daily = dailySetup(); go("daily"); SFX.ok(); }
+      else if (choice !== null && choice >= 0 && choice <= 4) {
+        G.mode = ["arcade", null, "cpu", "vs", "training"][choice];
         G.sel = { step: 0, cur: 0, picks: [] };
         go("select"); SFX.ok();
-      } else if (choice === 4) {
-        { const k = diffCount(); G.diff = n.left ? (G.diff + k - 1) % k : (G.diff + 1) % k; } store.set("diff", G.diff); SFX.menu(); G.menuSel = 4;
       } else if (choice === 5) {
-        muted = !muted; store.set("muted", muted); SFX.ok(); G.menuSel = 5;
+        { const k = diffCount(); G.diff = n.left ? (G.diff + k - 1) % k : (G.diff + 1) % k; } store.set("diff", G.diff); SFX.menu(); G.menuSel = 5;
+      } else if (choice === 6) {
+        muted = !muted; store.set("muted", muted); SFX.ok(); G.menuSel = 6;
       }
       break;
     }
     case "select": {
       const R = rosterVisible(), s = G.sel;
+      if ((justPressed.has("KeyC") || n.click === -50) && skinsOpen(R[s.cur]) > 1) {
+        const id = R[s.cur]; G.skins[id] = (skinOf(id) + 1) % skinsOpen(id); store.set("skins", G.skins); SFX.menu(); break;
+      }
       if (n.left) { s.cur = (s.cur + R.length - 1) % R.length; SFX.menu(); }
       if (n.right) { s.cur = (s.cur + 1) % R.length; SFX.menu(); }
       if (n.up || n.down) { s.cur = (s.cur + 3) % R.length; SFX.menu(); }
@@ -1127,9 +1534,28 @@ function updateMenus(dt) {
         s.picks.push(id); SFX.ok();
         const need = G.mode === "arcade" ? 1 : 2;
         if (s.picks.length >= need) {
-          if (G.mode === "arcade") { G.loseStreak = 0; G.ladder = makeLadder(s.picks[0]); go("ladder"); }
-          else { G.arenaSel = 0; go("arena"); }
+          G.vps = [null, null]; G.vpQ = G.mode === "vs" ? [0, 1] : [0]; G.vpStep = 0; G.vpCur = 0;
+          go("vp");
         } else { s.step++; s.cur = (choose + 1) % R.length; }
+      }
+      break;
+    }
+    case "vp": {
+      const side = G.vpQ[G.vpStep], C = vpCandidates(side), cols = 5;
+      if (n.left) { G.vpCur = (G.vpCur + C.length - 1) % C.length; SFX.menu(); }
+      if (n.right) { G.vpCur = (G.vpCur + 1) % C.length; SFX.menu(); }
+      if (n.up || n.down) { G.vpCur = (G.vpCur + cols) % C.length; SFX.menu(); }
+      if (n.back || n.click === -99) {
+        if (G.vpStep > 0) { G.vpStep--; G.vpCur = 0; SFX.back(); }
+        else { G.sel.picks.pop(); G.sel.step = G.sel.picks.length; go("select"); SFX.back(); }
+        break;
+      }
+      const choose = n.click !== null && n.click >= 0 ? n.click : n.ok ? G.vpCur : null;
+      if (choose !== null && C[choose]) {
+        G.vps[side] = C[choose]; SFX.ok();
+        if (G.vpStep + 1 < G.vpQ.length) { G.vpStep++; G.vpCur = 0; break; }
+        if (G.mode === "arcade") { G.loseStreak = 0; G.ladder = makeLadder(G.sel.picks[0]); go("ladder"); }
+        else { G.arenaSel = 0; go("arena"); }
       }
       break;
     }
@@ -1140,11 +1566,13 @@ function updateMenus(dt) {
       if (n.left) { G.arenaSel = (G.arenaSel + count - 6) % count; SFX.menu(); }
       if (n.right) { G.arenaSel = (G.arenaSel + 6) % count; SFX.menu(); }
       let choose = n.click !== null && n.click >= 0 ? n.click : n.ok ? G.arenaSel : null;
-      if (n.back || n.click === -99) { G.sel.picks.pop(); go("select"); G.sel.step = G.sel.picks.length; SFX.back(); break; }
+      if (n.back || n.click === -99) { G.vpStep = G.vpQ.length - 1; G.vpCur = 0; go("vp"); SFX.back(); break; }
       if (choose !== null) {
         const arena = choose === ids.length ? pick(ids) : ids[choose];
         G.pending = { mode: G.mode, p1: G.sel.picks[0], p2: G.sel.picks[1], arena,
-          level1: null, level2: G.mode === "cpu" ? G.diff : null, training: G.mode === "training" };
+          level1: null, level2: G.mode === "cpu" ? G.diff : null, training: G.mode === "training",
+          vp1: G.vps[0], vp2: G.mode === "vs" ? G.vps[1] : randomVP(G.sel.picks[1], G.sel.picks[0]),
+          skin1: skinOf(G.sel.picks[0]), skin2: G.mode === "vs" && G.sel.picks[1] !== G.sel.picks[0] ? skinOf(G.sel.picks[1]) : 0 };
         go("vs"); SFX.ok();
       }
       break;
@@ -1154,12 +1582,18 @@ function updateMenus(dt) {
       if (G.screenT > 0.4 && (n.ok || n.tapped)) {
         const s = G.ladder.list[G.ladder.idx];
         G.pending = ladderOpts();
-        go("vs"); SFX.ok();
+        if (G.pending.bonus) { newFight(G.pending); SFX.ok(); } else { go("vs"); SFX.ok(); }
       }
       break;
-    case "vs":
-      if (G.screenT > 2.4 || (G.screenT > 0.6 && (n.ok || n.tapped))) newFight(G.pending);
+    case "vs": {
+      const p = G.pending;
+      if (!p.talk) p.talk = makeTalk(p.p1, p.p2);
+      const tk = p.talk, T = tk.rivals ? 3.8 : 3.0;
+      if (!p.v0 && G.screenT > 0.35) { p.v0 = true; const l = tk.lines[tk.order[0]]; if (l) voice(l.key); }
+      if (!p.v1 && G.screenT > 1.6) { p.v1 = true; const l = tk.lines[tk.order[1]]; if (l) voice(l.key); }
+      if (G.screenT > T || (G.screenT > 0.6 && (n.ok || n.tapped))) newFight(p);
       break;
+    }
     case "continue":
       if (n.up || n.down || n.left || n.right) { G.menuSel = 1 - G.menuSel; SFX.menu(); }
       {
@@ -1171,19 +1605,42 @@ function updateMenus(dt) {
     case "gameover":
       if (G.screenT > 1.2 && n.any) { go("title"); SFX.back(); }
       break;
+    case "daily": {
+      if (n.left || n.right) { G.menuSel = 1 - G.menuSel; SFX.menu(); }
+      const c = n.click !== null ? n.click : n.ok ? G.menuSel : null;
+      if (c === 0) { G.pending = dailyOpts(); go("vs"); SFX.ok(); }
+      if (c === 1 || n.back) { go("mode"); SFX.back(); }
+      break;
+    }
+    case "dailyres": {
+      if (G.screenT < 0.8) break;
+      if (n.left) { G.menuSel = (G.menuSel + 2) % 3; SFX.menu(); }
+      if (n.right) { G.menuSel = (G.menuSel + 1) % 3; SFX.menu(); }
+      const c = n.click !== null ? n.click : n.ok ? G.menuSel : null;
+      if (c === 0) { shareResult("daily"); SFX.ok(); }
+      if (c === 1) { G.pending = dailyOpts(); go("vs"); SFX.ok(); }
+      if (c === 2 || n.back) { go("mode"); SFX.back(); }
+      break;
+    }
     case "result": {
-      const items = 3;
+      const items = 4;
       if (n.up) { G.menuSel = (G.menuSel + items - 1) % items; SFX.menu(); }
       if (n.down) { G.menuSel = (G.menuSel + 1) % items; SFX.menu(); }
       const c = n.click !== null ? n.click : n.ok ? G.menuSel : null;
       if (c === 0) newFight(F.opts);
       if (c === 1) { G.sel = { step: 0, cur: 0, picks: [] }; go("select"); SFX.ok(); }
-      if (c === 2 || n.back) { go("title"); SFX.back(); }
+      if (c === 2) { shareResult("result"); SFX.ok(); }
+      if (c === 3 || n.back) { go("title"); SFX.back(); }
       break;
     }
-    case "ending":
-      if (G.screenT > 1.2 && n.any) { go("title"); SFX.ok(); }
+    case "ending": {
+      if (G.screenT < 1.0) break;
+      if (n.left || n.right) { G.menuSel = 1 - G.menuSel; SFX.menu(); }
+      const c = n.click !== null ? n.click : n.ok ? G.menuSel : null;
+      if (c === 0) { shareResult("arcade"); SFX.ok(); }
+      if (c === 1 || n.back) { go("title"); SFX.ok(); }
       break;
+    }
   }
 }
 
@@ -1240,7 +1697,66 @@ function poseOf(f) {
   return p;
 }
 
+function drawObj(f) {
+  const k = f.d.kind;
+  if (k === "hands") return;
+  ctx.save(); ctx.translate(f.x, FLOOR);
+  ctx.fillStyle = "rgba(0,0,0,.35)"; ctx.beginPath(); ctx.ellipse(0, 3, 70, 12, 0, 0, Math.PI * 2); ctx.fill();
+  if (k === "teleprompter") {
+    const dmg = 1 - f.hp / f.maxHp;
+    ctx.rotate(dmg * 0.25 * Math.sin(G.time * 30) * (f.flash > 0 ? 1 : 0) + dmg * 0.12);
+    ctx.strokeStyle = "#2a2a2a"; ctx.lineWidth = 8;
+    ctx.beginPath(); ctx.moveTo(0, -170); ctx.lineTo(0, -10); ctx.moveTo(0, -10); ctx.lineTo(-50, 0); ctx.moveTo(0, -10); ctx.lineTo(50, 0); ctx.moveTo(0, -10); ctx.lineTo(0, 2); ctx.stroke();
+    ctx.fillStyle = "#1c1c1c"; ctx.fillRect(-40, -190, 80, 26);
+    // стекло под углом
+    ctx.save(); ctx.translate(0, -195); ctx.transform(1, 0, -0.35, 1, 0, 0);
+    ctx.fillStyle = f.flash > 0 ? "#ffffff" : "rgba(150,210,255,.75)"; ctx.fillRect(-70, -110, 140, 110);
+    ctx.strokeStyle = "#111"; ctx.lineWidth = 5; ctx.strokeRect(-70, -110, 140, 110);
+    ctx.fillStyle = "rgba(255,255,255,.85)";
+    for (let i = 0; i < 5; i++) ctx.fillRect(-55, -96 + i * 18, 70 + ((i * 37) % 40), 6);
+    ctx.strokeStyle = "rgba(20,20,20,.85)"; ctx.lineWidth = 3;
+    const cracks = Math.floor(dmg * 7);
+    for (let i = 0; i < cracks; i++) { const cx = -40 + ((i * 53) % 90), cy = -90 + ((i * 31) % 70); ctx.beginPath(); ctx.moveTo(cx, cy); ctx.lineTo(cx + 22, cy + 14); ctx.lineTo(cx + 10, cy + 34); ctx.moveTo(cx, cy); ctx.lineTo(cx - 18, cy + 20); ctx.stroke(); }
+    ctx.restore();
+  } else if (k === "ballots") {
+    ctx.fillStyle = "#5a3a1a"; ctx.fillRect(-60, -70, 120, 70);
+    ctx.fillStyle = "#2f5bd3"; ctx.fillRect(-55, -170, 110, 100);
+    ctx.strokeStyle = INK; ctx.lineWidth = 4; ctx.strokeRect(-55, -170, 110, 100);
+    ctx.fillStyle = INK; ctx.fillRect(-30, -165, 60, 8);
+    ctx.font = `26px ${FONT}`; ctx.textAlign = "center"; ctx.fillStyle = "#fff"; ctx.fillText("VOTE", 0, -108);
+    ctx.fillStyle = RED; ctx.fillRect(-55, -96, 110, 10);
+  }
+  ctx.restore();
+}
+function drawBonusItems() {
+  if (F.bonus === "ballots") for (const it of F.items) {
+    ctx.save(); ctx.translate(it.x, it.y); ctx.rotate(it.rot);
+    ctx.fillStyle = "#fff"; ctx.fillRect(-20, -14, 40, 28); ctx.strokeStyle = INK; ctx.lineWidth = 2; ctx.strokeRect(-20, -14, 40, 28);
+    ctx.strokeStyle = "#2f5bd3"; ctx.lineWidth = 4; ctx.beginPath(); ctx.moveTo(-10, 0); ctx.lineTo(-3, 7); ctx.lineTo(11, -8); ctx.stroke();
+    ctx.restore();
+  }
+  if (F.bonus === "hands") {
+    const p = F.p[0];
+    // толпа на переднем плане
+    for (let i = 0; i < 26; i++) {
+      const x = i * 52 + 10, y = 690 + Math.sin(G.time * 3 + i) * 3;
+      ctx.fillStyle = ["#2b2b45", "#3a2e50", "#25354a"][i % 3]; ctx.beginPath(); ctx.arc(x, y, 26, 0, Math.PI * 2); ctx.fill();
+      ctx.fillRect(x - 30, y + 14, 60, 40);
+    }
+    for (const h of F.items) {
+      const up = h.done ? 1 - h.t / 0.4 : Math.min(1, h.t * 5);
+      const top = H - 30 - 110 * up, near = !h.done && Math.abs(h.x - p.x) < 95;
+      ctx.strokeStyle = h.skin; ctx.lineWidth = 18; ctx.lineCap = "round";
+      ctx.beginPath(); ctx.moveTo(h.x, H + 20); ctx.lineTo(h.x, top); ctx.stroke(); ctx.lineCap = "butt";
+      ctx.fillStyle = h.skin; ctx.beginPath(); ctx.arc(h.x, top - 6, 16, 0, Math.PI * 2); ctx.fill();
+      if (near) { ctx.strokeStyle = GOLD; ctx.lineWidth = 4; ctx.beginPath(); ctx.arc(h.x, top - 6, 28 + Math.sin(G.time * 12) * 3, 0, Math.PI * 2); ctx.stroke(); }
+      if (!h.done && h.life - h.t < 0.5) { ctx.globalAlpha = 0.6; label("!", h.x, top - 40, 26, "#ff9a9a"); ctx.globalAlpha = 1; }
+    }
+  }
+}
+
 function drawFighter(f) {
+  if (f.d.obj) { drawObj(f); return; }
   const shadowK = clamp(1 - (FLOOR - f.y) / 500, 0.3, 1);
   ctx.fillStyle = "rgba(0,0,0,.35)";
   ctx.beginPath(); ctx.ellipse(f.x, FLOOR + 3, 58 * shadowK, 11 * shadowK, 0, 0, Math.PI * 2); ctx.fill();
@@ -1701,7 +2217,7 @@ function hpBar(f, x, flip) {
   ctx.restore();
   ctx.font = `22px ${FONT}`; ctx.textAlign = flip ? "right" : "left"; ctx.fillStyle = WHITE;
   ctx.fillText(f.d.name, flip ? x - 4 : x + 4, 92);
-  for (let i = 0; i < WINS_NEEDED; i++) {
+  for (let i = 0; i < F.winsNeeded; i++) {
     ctx.fillStyle = i < f.wins ? GOLD : "rgba(255,255,255,.25)";
     ctx.beginPath(); ctx.arc(flip ? x - 470 + i * 26 : x + 470 - i * 26, 82, 9, 0, Math.PI * 2); ctx.fill();
   }
@@ -1724,6 +2240,23 @@ function meterBar(f, x, flip) {
     ctx.font = `11px ${FONT}`; ctx.textAlign = "center"; ctx.fillStyle = k >= 1 ? INK : "#fff";
     ctx.fillText(["S", "F", "D"][i], bx + 14, by + 14);
   });
+  if (f.vp) {
+    const bx = flip ? x - w + 3 * 34 + 6 : x + 3 * 34 + 6, by = y - 40, ok = !f.vpUsed;
+    ctx.fillStyle = ok ? "#9fe8ff" : "rgba(0,0,0,.55)"; ctx.fillRect(bx, by, 120, 18);
+    ctx.font = `11px ${FONT}`; ctx.textAlign = "center"; ctx.fillStyle = ok ? INK : "rgba(255,255,255,.45)";
+    ctx.fillText("VP: " + D.fighters[f.vp].name, bx + 60, by + 14, 112);
+  }
+}
+function drawBubble(s, x, y, alpha = 1) {
+  ctx.save(); ctx.globalAlpha = alpha;
+  ctx.font = `20px ${FONT}`;
+  const w = Math.min(420, ctx.measureText(s).width + 32), h = 44;
+  const bx = clamp(x - w / 2, 10, W - w - 10);
+  ctx.fillStyle = "#fff"; roundRect(bx, y - h, w, h, 12); ctx.fill();
+  ctx.beginPath(); ctx.moveTo(clamp(x, bx + 16, bx + w - 16) - 10, y - 2); ctx.lineTo(clamp(x, bx + 16, bx + w - 16), y + 16); ctx.lineTo(clamp(x, bx + 16, bx + w - 16) + 10, y - 2); ctx.fill();
+  ctx.strokeStyle = INK; ctx.lineWidth = 3; roundRect(bx, y - h, w, h, 12); ctx.stroke();
+  ctx.fillStyle = INK; ctx.textAlign = "center"; ctx.fillText(s, bx + w / 2, y - 15, w - 20);
+  ctx.restore();
 }
 function bigText(s, y, size, color, alpha = 1) {
   ctx.save();
@@ -1751,6 +2284,9 @@ function drawFight() {
   const order = F.p[0].st === "atk" ? [F.p[1], F.p[0]] : [F.p[0], F.p[1]];
   if (F.phase === "fatality") drawFatality();
   else for (const f of order) drawFighter(f);
+  for (const a of F.assists) drawAssist(a);
+  drawHazards();
+  if (F.bonus) drawBonusItems();
   for (const p of F.proj) drawProj(p);
   for (const p of F.parts) { ctx.globalAlpha = 1 - p.t / p.life; ctx.fillStyle = p.c; ctx.fillRect(p.x - p.s / 2, p.y - p.s / 2, p.s, p.s); }
   ctx.globalAlpha = 1;
@@ -1761,6 +2297,7 @@ function drawFight() {
     ctx.strokeText(t.s, t.x, t.y - k * 30); ctx.fillStyle = t.c; ctx.fillText(t.s, t.x, t.y - k * 30);
     ctx.restore();
   }
+  for (const b of F.bubbles) drawBubble(b.s, b.f.x, b.f.y - 330, Math.min(1, (b.life - b.t) * 3));
   ctx.restore();
 
   // супер-приём: затемнение и имя
@@ -1772,15 +2309,20 @@ function drawFight() {
 
   // интерфейс
   hpBar(F.p[0], 50, false);
-  hpBar(F.p[1], W - 50, true);
+  if (F.bonus && F.p[1].d.inv) {
+    ctx.fillStyle = "rgba(10,14,40,.85)"; ctx.fillRect(W - 470, 30, 420, 64);
+    ctx.font = `30px ${FONT}`; ctx.textAlign = "right"; ctx.fillStyle = GOLD;
+    ctx.fillText((F.bonus === "ballots" ? "BALLOTS: " : "HANDS: ") + F.score, W - 70, 74);
+  } else hpBar(F.p[1], W - 50, true);
   ctx.fillStyle = INK; ctx.beginPath(); ctx.arc(W / 2, 52, 38, 0, Math.PI * 2); ctx.fill();
   ctx.strokeStyle = GOLD; ctx.lineWidth = 3; ctx.stroke();
   ctx.font = `34px ${FONT}`; ctx.textAlign = "center"; ctx.fillStyle = F.timer < 10 ? RED : WHITE;
   ctx.fillText(String(Math.ceil(F.timer)), W / 2, 64);
   meterBar(F.p[0], 40, false);
-  meterBar(F.p[1], W - 40, true);
+  if (!F.p[1].d.obj) meterBar(F.p[1], W - 40, true);
   ctx.font = `16px ${FONT}`; ctx.fillStyle = "rgba(255,255,255,.7)"; ctx.textAlign = "center";
   ctx.fillText(D.arenas[F.arena].name, W / 2, 112);
+  if (F.mods) { ctx.fillStyle = "#c79bff"; ctx.fillText("DAILY: " + D.daily.find((m) => m.id === F.mods).name, W / 2, 132); }
   if (F.comboShow && F.comboShow.n >= 2) {
     const left = F.comboShow.who === F.p[0];
     ctx.save(); ctx.font = `40px ${FONT}`; ctx.textAlign = left ? "left" : "right";
@@ -1790,7 +2332,13 @@ function drawFight() {
   }
 
   // надписи фаз
-  if (F.phase === "intro") {
+  if (F.bonus && F.phase === "intro") {
+    const b = D.bonus[F.bonus];
+    bigText("BONUS STAGE", 230, 40, "#c79bff");
+    if (F.phaseT < 1.3) { bigText(b.name, 310, 54, GOLD); bigText(b.desc, 360, 26, WHITE); }
+    else bigText("GO!", 340, 110, GOLD);
+  } else if (F.phase === "intro") {
+    if (F.mods && F.round === 1 && F.phaseT < 1.1) bigText(D.daily.find((m) => m.id === F.mods).name, 250, 36, "#c79bff");
     if (F.phaseT < 1.1) bigText(F.round === MAX_ROUNDS ? "FINAL ROUND" : "ROUND " + F.round, 330, 72, WHITE);
     else bigText(D.texts.fight, 340, 110, GOLD);
   }
@@ -1800,9 +2348,24 @@ function drawFight() {
     bigText(D.texts.finish, 320, 100, RED, 0.6 + 0.4 * Math.sin(G.time * 10));
     if (!F.matchWinner.bot) bigText(isTouch ? "PRESS SPEC!" : "PRESS SPECIAL!", 390, 34, WHITE);
   }
+  if (F.phase === "bonusover") {
+    bigText(F.bonusDone || F.bonus !== "teleprompter" ? "BONUS COMPLETE!" : D.texts.timeUp, 260, 60, GOLD);
+    bigText(`+${F.bonusPts}% APPROVAL`, 330, 40, "#7dff9a", clamp(F.phaseT * 2, 0, 1));
+  }
   if (F.phase === "over") {
-    bigText(F.matchWinner.d.name + " WINS!", 300, 64, GOLD);
-    bigText(F.matchWinner.d.win, 360, 30, WHITE);
+    bigText(F.matchWinner.d.name + " WINS!", 215, 64, GOLD);
+    bigText(F.matchWinner.d.win, 258, 28, WHITE);
+    if (F.approval && !F.opts.training) {
+      const side = F.opts.mode === "vs" ? F.matchWinner.side : 0;
+      bigText(`APPROVAL RATING: ${F.approval[side]}%`, 158, 28, side === 0 ? "#7dff9a" : "#ff9a9a", clamp(F.phaseT * 2, 0, 1));
+    }
+  }
+  if (F.freezeT > 0) {
+    ctx.fillStyle = "rgba(10,20,60,.82)"; ctx.fillRect(0, 0, W, H);
+    ctx.fillStyle = "#1e3a8a"; ctx.fillRect(240, 220, 800, 260); ctx.strokeStyle = GOLD; ctx.lineWidth = 6; ctx.strokeRect(240, 220, 800, 260);
+    bigText(D.texts.adBreak, 320, 54, GOLD);
+    bigText("WE'LL BE RIGHT BACK", 390, 34, WHITE);
+    bigText("Stay tuned...", 440, 22, "#9fc2ff");
   }
   if (G.paused) drawPause();
 }
@@ -1855,9 +2418,10 @@ function drawMoveList(d) {
     [B.dn + " + " + B.s, d.specials.d.name, d.specials.d.desc],
     [isTouch ? "SUPER" : B.p + " + " + B.k, d.superMove.name, "When the SUPER meter is full"],
     ["PASSIVE", d.passive.name, d.passive.desc],
+    [isTouch ? "VP" : "E", "RUNNING MATE", "Once per round your VP runs in and lands one hit"],
   ];
   rows.forEach(([k, n, desc], i) => {
-    const y = 130 + i * 50;
+    const y = 124 + i * 46;
     ctx.fillStyle = i % 2 ? "rgba(20,26,60,.85)" : "rgba(30,38,80,.85)"; ctx.fillRect(80, y - 30, 1120, 46);
     ctx.textAlign = "left";
     ctx.font = `18px ${FONT}`; ctx.fillStyle = i >= 5 ? "#9fe8ff" : GOLD; ctx.fillText(k, 100, y);
@@ -1882,6 +2446,17 @@ function menuBg() {
   ctx.save(); ctx.globalAlpha = 0.12;
   for (let i = 0; i < 7; i++) { ctx.fillStyle = i % 2 ? "#ffffff" : "#b22234"; ctx.fillRect(0, 440 + i * 40, W, 40); }
   ctx.restore();
+}
+function hButtons(items, sel, cy, w, h, gap = 24) {
+  const total = items.length * w + (items.length - 1) * gap;
+  items.forEach((s, i) => {
+    const x = W / 2 - total / 2 + i * (w + gap), y = cy - h / 2, on = i === sel;
+    ctx.fillStyle = on ? "rgba(255,213,74,.95)" : "rgba(20,26,60,.9)"; ctx.fillRect(x, y, w, h);
+    ctx.strokeStyle = on ? "#fff" : "rgba(255,255,255,.35)"; ctx.lineWidth = 2; ctx.strokeRect(x, y, w, h);
+    ctx.font = `${Math.round(h * 0.42)}px ${FONT}`; ctx.textAlign = "center"; ctx.fillStyle = on ? INK : WHITE;
+    ctx.fillText(s, x + w / 2, y + h * 0.66, w - 16);
+    G.hits.push({ x, y, w, h, i });
+  });
 }
 function menuList(items, sel, cx, y, w, h, gap = 14) {
   items.forEach((s, i) => {
@@ -1923,10 +2498,10 @@ function drawTitle() {
 function drawMode() {
   menuBg();
   drawLogo(110, 40);
-  menuList(["ARCADE", "VS CPU", "2 PLAYERS", "TRAINING", "LEVEL: " + DIFF_NAMES[G.diff], "SOUND: " + (muted ? "OFF" : "ON")], G.menuSel, W / 2, 230, 460, 56, 12);
+  menuList(["ARCADE", "DAILY CHALLENGE", "VS CPU", "2 PLAYERS", "TRAINING", "LEVEL: " + DIFF_NAMES[G.diff], "SOUND: " + (muted ? "OFF" : "ON")], G.menuSel, W / 2, 196, 460, 50, 10);
   ctx.font = `16px ${FONT}`; ctx.textAlign = "center"; ctx.fillStyle = "rgba(255,255,255,.65)";
-  const hint = ["7 fights in a row. Final boss in the Oval Office", "Free fight against the computer on any arena", "Two players on one keyboard", "Practice moves and combos. Pause shows the move list", DIFF_HINTS[G.diff] + (G.impeachUnlocked ? "" : "  ·  Beat arcade on COMMANDER-IN-CHIEF to unlock a secret level"), ""][G.menuSel];
-  ctx.fillText(hint, W / 2, 650);
+  const hint = ["7 fights and 3 bonus stages. Final boss in the Oval Office", "A new matchup and a new twist every day. Keep your streak!", "Free fight against the computer on any arena", "Two players on one keyboard", "Practice moves and combos. Pause shows the move list", DIFF_HINTS[G.diff] + (G.impeachUnlocked ? "" : "  ·  Beat arcade on COMMANDER-IN-CHIEF to unlock a secret level"), ""][G.menuSel];
+  ctx.fillText(hint, W / 2, 672);
 }
 
 function drawSelect() {
@@ -1961,7 +2536,7 @@ function drawSelect() {
   if (!lk) {
     ctx.save(); ctx.translate(800, 560); ctx.scale(1.3, 1.3);
     const a = Math.sin(G.time * 1.5) > 0.7;
-    drawDummy(d, { cr: 0, lean: 0, arms: a ? "punch" : "guard", legs: "stand", lying: 0, bob: Math.sin(G.time * 4) * 2 }, false, 0);
+    drawDummy(skinned(d, skinOf(id)), { cr: 0, lean: 0, arms: a ? "punch" : "guard", legs: "stand", lying: 0, bob: Math.sin(G.time * 4) * 2 }, false, 0);
     ctx.restore();
     ctx.textAlign = "left"; ctx.font = `30px ${FONT}`; ctx.fillStyle = GOLD; ctx.fillText(d.name, 920, 170);
     ctx.font = `16px ${FONT}`; ctx.fillStyle = "rgba(255,255,255,.8)"; ctx.fillText(d.full, 920, 196);
@@ -1979,6 +2554,14 @@ function drawSelect() {
       ctx.font = `13px ${FONT}`; ctx.fillStyle = c; ctx.fillText(k, 920, y);
       ctx.font = `14px ${FONT}`; ctx.fillStyle = WHITE; ctx.fillText(v, 1030, y);
     });
+    const open = skinsOpen(id), sk = skinOf(id);
+    ctx.font = `13px ${FONT}`; ctx.fillStyle = "#c79bff"; ctx.fillText("COSTUME", 920, 576);
+    if (open > 1) {
+      ctx.fillStyle = "rgba(199,155,255,.25)"; ctx.fillRect(1022, 558, 196, 26);
+      ctx.font = `14px ${FONT}`; ctx.fillStyle = WHITE; ctx.fillText("◀ " + SKINS[sk].name + " ▶", 1030, 576);
+      G.hits.push({ x: 1022, y: 558, w: 196, h: 26, i: -50 });
+      ctx.font = `11px ${FONT}`; ctx.fillStyle = "rgba(255,255,255,.55)"; ctx.fillText(isTouch ? "tap to change" : "press C to change", 1030, 594);
+    } else { ctx.font = `12px ${FONT}`; ctx.fillStyle = "rgba(255,255,255,.55)"; ctx.fillText("Beat arcade on COMMANDER-IN-CHIEF", 1030, 576); }
   } else {
     label("SECRET FIGHTER", 945, 330, 34, GOLD);
     ctx.font = `18px ${FONT}`; ctx.fillStyle = WHITE; ctx.textAlign = "center";
@@ -1986,6 +2569,29 @@ function drawSelect() {
   }
   ctx.font = `15px ${FONT}`; ctx.textAlign = "center"; ctx.fillStyle = "rgba(255,255,255,.6)";
   ctx.fillText(isTouch ? "Tap a fighter to choose" : "Arrows to move, Enter to choose, Esc to go back", W / 2, 640);
+  if (isTouch) { G.hits.push({ x: 20, y: 660, w: 160, h: 50, i: -99 }); label("‹ BACK", 100, 694, 20, WHITE); }
+}
+
+function drawVPSelect() {
+  menuBg();
+  const side = G.vpQ[G.vpStep], C = vpCandidates(side), me = D.fighters[G.sel.picks[side]];
+  bigText("CHOOSE YOUR RUNNING MATE", 70, 40, side === 0 ? GOLD : "#ff7a7a");
+  ctx.font = `18px ${FONT}`; ctx.textAlign = "center"; ctx.fillStyle = WHITE;
+  ctx.fillText((G.mode === "vs" ? `PLAYER ${side + 1} · ` : "") + me.name + "'S VICE PRESIDENT", W / 2, 108);
+  const cols = 5, cw = 160, ch = 190, gap = 20, total = cols * cw + (cols - 1) * gap;
+  C.forEach((id, i) => {
+    const col = i % cols, row = Math.floor(i / cols);
+    const x = W / 2 - total / 2 + col * (cw + gap), y = 140 + row * (ch + gap), on = i === G.vpCur;
+    ctx.fillStyle = on ? "rgba(255,213,74,.25)" : "rgba(20,26,60,.85)"; ctx.fillRect(x, y, cw, ch);
+    ctx.save(); ctx.beginPath(); ctx.rect(x, y, cw, ch); ctx.clip(); drawPortrait(id, x + 5, y + 5, 150, false); ctx.restore();
+    ctx.strokeStyle = on ? GOLD : "rgba(255,255,255,.3)"; ctx.lineWidth = on ? 5 : 2; ctx.strokeRect(x, y, cw, ch);
+    ctx.fillStyle = "rgba(0,0,0,.7)"; ctx.fillRect(x, y + ch - 34, cw, 34);
+    label(D.fighters[id].name, x + cw / 2, y + ch - 10, D.fighters[id].name.length > 9 ? 14 : 20, WHITE);
+    G.hits.push({ x, y, w: cw, h: ch, i });
+  });
+  const key = isTouch ? "the VP button" : G.mode === "vs" ? (side === 0 ? "R" : "U") : "E";
+  ctx.font = `18px ${FONT}`; ctx.textAlign = "center"; ctx.fillStyle = "#9fe8ff";
+  ctx.fillText(`Press ${key} once per round: your running mate runs in and lands one hit.`, W / 2, 610);
   if (isTouch) { G.hits.push({ x: 20, y: 660, w: 160, h: 50, i: -99 }); label("‹ BACK", 100, 694, 20, WHITE); }
 }
 
@@ -2015,17 +2621,31 @@ function drawLadder() {
   bigText("ROAD TO THE FIFTH TERM", 70, 40, GOLD);
   ctx.font = `16px ${FONT}`; ctx.textAlign = "right"; ctx.fillStyle = L.diff === 3 ? "#ff4d6d" : "rgba(255,255,255,.7)";
   ctx.fillText(DIFF_NAMES[L.diff] + (L.diff === 3 ? " · NO CONTINUES" : ""), W - 30, 36);
+  const step = L.list.length > 7 ? 54 : 74, rh = step - 8;
+  let n = 0;
   L.list.forEach((s, i) => {
-    const y = 110 + i * 74, done = i < L.idx, cur = i === L.idx;
-    ctx.fillStyle = cur ? "rgba(255,213,74,.95)" : done ? "rgba(40,90,50,.85)" : "rgba(20,26,60,.85)";
-    ctx.fillRect(230, y, 820, 62);
-    ctx.save(); ctx.beginPath(); ctx.rect(240, y + 2, 60, 58); ctx.clip(); drawPortrait(s.opp, 236, y + 2, 66, false); ctx.restore();
-    ctx.font = `22px ${FONT}`; ctx.textAlign = "left"; ctx.fillStyle = cur ? INK : WHITE;
-    ctx.fillText(`${i + 1}. ${s.boss ? "BOSS: " : ""}${D.fighters[s.opp].name}`, 320, y + 30);
-    ctx.font = `14px ${FONT}`; ctx.fillStyle = cur ? INK : "rgba(255,255,255,.65)";
-    ctx.fillText(`${D.arcade.tourNames[s.tour]} · ${D.arenas[s.arena].name}`, 320, y + 52);
-    if (done) label("✓", 1010, y + 44, 34, "#7dff9a");
+    const y = 104 + i * step, done = i < L.idx, cur = i === L.idx;
+    ctx.fillStyle = cur ? "rgba(255,213,74,.95)" : done ? "rgba(40,90,50,.85)" : s.bonus ? "rgba(70,40,110,.85)" : "rgba(20,26,60,.85)";
+    ctx.fillRect(230, y, 820, rh);
+    ctx.textAlign = "left";
+    if (s.bonus) {
+      ctx.font = `20px ${FONT}`; ctx.fillStyle = cur ? INK : "#d9c2ff";
+      ctx.fillText("★ BONUS: " + D.bonus[s.bonus].name, 250, y + rh * 0.64);
+    } else {
+      n++;
+      ctx.save(); ctx.beginPath(); ctx.rect(240, y + 2, rh - 4, rh - 4); ctx.clip(); drawPortrait(s.opp, 236, y + 2, rh + 4, false); ctx.restore();
+      ctx.font = `20px ${FONT}`; ctx.fillStyle = cur ? INK : WHITE;
+      ctx.fillText(`${n}. ${s.boss ? "BOSS: " : ""}${D.fighters[s.opp].name}`, 300, y + rh * 0.48);
+      ctx.font = `13px ${FONT}`; ctx.fillStyle = cur ? INK : "rgba(255,255,255,.65)";
+      ctx.fillText(`${D.arcade.tourNames[s.tour]} · ${D.arenas[s.arena].name}` + (s.vp ? ` · VP: ${D.fighters[s.vp].name}` : ""), 300, y + rh * 0.84);
+    }
+    if (done) label("✓", 1010, y + rh * 0.72, 30, "#7dff9a");
   });
+  if (L.approvals.length || L.bonus) {
+    const avg = L.approvals.length ? L.approvals.reduce((a, b) => a + b, 0) / L.approvals.length : 50;
+    ctx.font = `16px ${FONT}`; ctx.textAlign = "left"; ctx.fillStyle = "#7dff9a";
+    ctx.fillText(`APPROVAL: ${clamp(Math.round(avg + L.bonus), 1, 99)}%`, 30, 36);
+  }
   if (Math.sin(G.time * 5) > -0.3) bigText(isTouch ? "TAP TO FIGHT" : "PRESS ENTER TO FIGHT", 690, 28, WHITE);
 }
 
@@ -2043,6 +2663,15 @@ function drawVS() {
   });
   bigText("VS", 360, 140 * (0.7 + 0.3 * k), RED);
   bigText(D.arenas[p.arena].name, 80, 32, WHITE);
+  const tk = p.talk;
+  if (tk) {
+    if (tk.rivals) bigText("GRUDGE MATCH!", 450, 34, GOLD, 0.6 + 0.4 * Math.sin(G.time * 8));
+    const xs = [330, 950];
+    tk.order.forEach((side, n) => {
+      const l = tk.lines[side], t0 = n === 0 ? 0.35 : 1.6;
+      if (l && G.screenT > t0) drawBubble(l.s, xs[side], 190, clamp((G.screenT - t0) * 4, 0, 1));
+    });
+  }
 }
 
 function drawContinue() {
@@ -2053,6 +2682,40 @@ function drawContinue() {
   ctx.font = `18px ${FONT}`; ctx.textAlign = "center"; ctx.fillStyle = "#9fc2ff";
   if (G.tip) ctx.fillText("TIP: " + G.tip, W / 2, 560);
   if (G.ladder && G.ladder.diff === 0 && G.loseStreak >= 2) { ctx.fillStyle = "rgba(255,255,255,.6)"; ctx.fillText("Your opponent is feeling tired...", W / 2, 600); }
+}
+function drawDaily() {
+  const d = G.daily;
+  drawArena(d.arena, false);
+  ctx.fillStyle = "rgba(5,6,20,.72)"; ctx.fillRect(0, 0, W, H);
+  bigText("DAILY CHALLENGE", 70, 44, GOLD);
+  ctx.font = `18px ${FONT}`; ctx.textAlign = "center"; ctx.fillStyle = "rgba(255,255,255,.7)";
+  ctx.fillText(d.date + "  ·  " + D.arenas[d.arena].name, W / 2, 104);
+  bigText(d.mod.name, 170, 50, "#c79bff");
+  ctx.font = `20px ${FONT}`; ctx.fillStyle = WHITE; ctx.fillText(d.mod.desc, W / 2, 210);
+  [[d.p1, 330, 1, "YOU", d.vp1], [d.p2, 950, -1, "CPU", d.vp2]].forEach(([id, x, face, who, vp]) => {
+    ctx.save(); ctx.translate(x, 540); ctx.scale(1.15 * face, 1.15);
+    drawDummy(D.fighters[id], { cr: 0, lean: 0, arms: "guard", legs: "stand", lying: 0, bob: Math.sin(G.time * 4) * 2 }, false, 0);
+    ctx.restore();
+    label(D.fighters[id].name, x, 578, 30, who === "YOU" ? GOLD : "#ff9a9a");
+    ctx.font = `14px ${FONT}`; ctx.fillStyle = "rgba(255,255,255,.7)"; ctx.fillText(who + (vp ? " · VP: " + D.fighters[vp].name : ""), x, 600);
+  });
+  bigText("VS", 400, 80, RED);
+  ctx.font = `18px ${FONT}`; ctx.textAlign = "center"; ctx.fillStyle = "#7dff9a";
+  ctx.fillText((d.best ? `TODAY'S BEST: ${d.best}%` : "NOT WON YET TODAY") + `  ·  STREAK: ${d.streak} DAY${d.streak === 1 ? "" : "S"}`, W / 2, 262);
+  hButtons(["FIGHT!", "BACK"], G.menuSel, 660, 240, 52);
+}
+function drawDailyResult() {
+  menuBg();
+  const R = G.dailyResult;
+  ctx.save(); ctx.translate(W / 2, 600); ctx.scale(1.0, 1.0);
+  drawDummy(D.fighters[R.p1], { cr: 0, lean: 0, arms: R.won ? "up" : "down", legs: "stand", lying: 0, bob: Math.sin(G.time * 6) * 3 }, false, 0);
+  ctx.restore();
+  bigText("DAILY CHALLENGE · " + R.mod, 70, 32, "#c79bff");
+  bigText(R.won ? "CHALLENGE WON!" : D.texts.impeach, 150, 70, R.won ? GOLD : RED);
+  if (R.won) bigText(`APPROVAL RATING: ${R.approval}%`, 200, 30, "#7dff9a");
+  ctx.font = `20px ${FONT}`; ctx.textAlign = "center"; ctx.fillStyle = WHITE;
+  ctx.fillText(R.streak > 0 ? `STREAK: ${R.streak} DAY${R.streak === 1 ? "" : "S"} · Come back tomorrow for a new challenge` : "Come back tomorrow for a new challenge", W / 2, 240);
+  if (G.screenT > 0.8) hButtons(["SHARE", "RETRY", "MENU"], G.menuSel, 660, 220, 52);
 }
 function drawGameOver() {
   menuBg();
@@ -2070,12 +2733,13 @@ function drawResult() {
   drawDummy(w.d, { cr: 0, lean: 0, arms: "up", legs: "stand", lying: 0, bob: Math.sin(G.time * 6) * 3 }, false, 0);
   ctx.restore();
   bigText(w.d.name + " WINS!", 90, 56, GOLD);
-  menuList(["REMATCH", "CHANGE FIGHTERS", "MAIN MENU"], G.menuSel, W / 2, 500, 400, 52, 10);
+  if (G.lastApproval) { ctx.font = `22px ${FONT}`; ctx.textAlign = "center"; ctx.fillStyle = "#7dff9a"; ctx.fillText(`APPROVAL RATING: ${G.lastApproval}%`, W / 2, 140); }
+  menuList(["REMATCH", "CHANGE FIGHTERS", "SHARE", "MAIN MENU"], G.menuSel, W / 2, 486, 400, 44, 9);
 }
 
 function drawEnding() {
   menuBg();
-  const d = D.fighters[G.ladder.pid];
+  const d = skinned(D.fighters[G.ladder.pid], skinOf(G.ladder.pid));
   ctx.save(); ctx.translate(W / 2, 470); ctx.scale(1.6, 1.6);
   drawDummy(d, { cr: 0, lean: 0, arms: "up", legs: "stand", lying: 0, bob: Math.sin(G.time * 6) * 3 }, false, 0);
   ctx.restore();
@@ -2084,14 +2748,70 @@ function drawEnding() {
   wrapText(d.ending, W / 2, 530, 980, 32);
   const L = G.ladder;
   ctx.font = `20px ${FONT}`; ctx.fillStyle = MEDAL_COLORS[L.diff];
-  ctx.fillText((G.newTitle ? "NEW TITLE: " : "TITLE: ") + TITLES[L.diff] + "  ·  " + DIFF_NAMES[L.diff], W / 2, 190);
-  (G.unlocks || []).forEach((t, i) => bigText(t, 640 + i * 34, 24, "#6fd3ff"));
+  ctx.fillText((G.newTitle ? "NEW TITLE: " : "TITLE: ") + TITLES[L.diff] + "  ·  " + DIFF_NAMES[L.diff], W / 2, 180);
+  if (L.final) bigText(`APPROVAL RATING: ${L.final}%` + (G.newBest ? "  NEW BEST!" : ""), 222, 30, "#7dff9a");
+  (G.unlocks || []).forEach((t, i) => bigText(t, 600 + i * 28, 20, "#6fd3ff"));
+  if (G.screenT > 1.0) hButtons(["SHARE", "MAIN MENU"], G.menuSel, 674, 260, 50);
+}
+
+/* ------------------------------------------------------------------ */
+/* Карточка для соцсетей                                              */
+/* ------------------------------------------------------------------ */
+const SITE = "ivan-code-afk.github.io/presidential-knockout";
+function shareInfo(kind) {
+  if (kind === "arcade") {
+    const L = G.ladder, d = D.fighters[L.pid];
+    return { d, head: D.texts.champion, big: `${L.final}% APPROVAL`, sub: `${TITLES[L.diff]} · ${DIFF_NAMES[L.diff]}`,
+      text: `I won a fifth term as ${d.full} with ${L.final}% approval in PRESIDENTIAL KNOCKOUT!` };
+  }
+  if (kind === "daily") {
+    const R = G.dailyResult, d = D.fighters[R.p1];
+    return { d, head: "DAILY CHALLENGE", big: R.won ? `${R.approval}% APPROVAL` : "IMPEACHED", sub: `${R.mod} · ${R.date}` + (R.streak > 1 ? ` · ${R.streak}-DAY STREAK` : ""),
+      text: R.won ? `${R.mod}: I won today's challenge as ${d.full} with ${R.approval}% approval in PRESIDENTIAL KNOCKOUT!` : `${R.mod} got me impeached today in PRESIDENTIAL KNOCKOUT. Can you do better?` };
+  }
+  const w = G.lastWinner;
+  return { d: w.d, head: w.d.name + " WINS!", big: G.lastApproval ? `${G.lastApproval}% APPROVAL` : "", sub: D.arenas[G.lastOpts.arena].name,
+    text: `${w.d.full} wins with ${G.lastApproval}% approval in PRESIDENTIAL KNOCKOUT!` };
+}
+function drawShareCard(info) {
+  menuBg();
+  ctx.fillStyle = "rgba(255,213,74,.12)"; ctx.fillRect(0, 0, W, H);
+  ctx.save(); ctx.translate(330, 640); ctx.scale(2.0, 2.0);
+  drawDummy(info.d, { cr: 0, lean: 0, arms: "up", legs: "stand", lying: 0, bob: 0 }, false, 0);
+  ctx.restore();
+  ctx.textAlign = "center";
+  ctx.font = `30px ${FONT}`; ctx.fillStyle = WHITE; ctx.fillText("PRESIDENTIAL", 900, 110);
+  ctx.font = `56px ${FONT}`; ctx.fillStyle = RED; ctx.fillText("KNOCKOUT", 900, 168);
+  ctx.font = `48px ${FONT}`; ctx.lineWidth = 7; ctx.strokeStyle = INK; ctx.strokeText(info.head, 900, 290, 680); ctx.fillStyle = GOLD; ctx.fillText(info.head, 900, 290, 680);
+  ctx.font = `64px ${FONT}`; ctx.strokeText(info.big, 900, 390, 680); ctx.fillStyle = "#7dff9a"; ctx.fillText(info.big, 900, 390, 680);
+  ctx.font = `26px ${FONT}`; ctx.fillStyle = WHITE; ctx.fillText(info.sub, 900, 450, 680);
+  ctx.font = `22px ${FONT}`; ctx.fillStyle = "rgba(255,255,255,.75)"; ctx.fillText("Can you beat it?  " + SITE, 900, 620, 680);
+  ctx.font = `13px ${FONT}`; ctx.fillStyle = "rgba(255,255,255,.45)"; ctx.fillText(D.disclaimer, 900, 690);
+}
+function shareResult(kind) {
+  const info = shareInfo(kind);
+  drawShareCard(info);
+  const url = location.protocol.startsWith("http") ? location.href.split("#")[0] : "https://" + SITE + "/";
+  canvas.toBlob(async (blob) => {
+    if (!blob) return;
+    const file = new File([blob], "presidential-knockout.png", { type: "image/png" });
+    try {
+      if (navigator.canShare && navigator.canShare({ files: [file] })) { await navigator.share({ files: [file], text: info.text + " " + url }); return; }
+      if (navigator.share) { await navigator.share({ text: info.text, url }); return; }
+    } catch (e) { if (e && e.name === "AbortError") return; }
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob); a.download = "presidential-knockout.png";
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+    G.toast = { s: "Image saved. Share it anywhere!", t: 2.5 };
+  }, "image/png");
 }
 
 /* ------------------------------------------------------------------ */
 /* Главный цикл                                                       */
 /* ------------------------------------------------------------------ */
 function update(dt) {
+  if (G.toast) { G.toast.t -= dt; if (G.toast.t <= 0) G.toast = null; }
   if (G.screen === "fight") updateFight(dt);
   else updateMenus(dt);
 }
@@ -2104,13 +2824,21 @@ function draw() {
     case "mode": drawMode(); break;
     case "select": drawSelect(); break;
     case "arena": drawArenaSelect(); break;
+    case "vp": drawVPSelect(); break;
     case "ladder": drawLadder(); break;
     case "vs": drawVS(); break;
     case "fight": drawFight(); break;
     case "continue": drawContinue(); break;
     case "gameover": drawGameOver(); break;
+    case "daily": drawDaily(); break;
+    case "dailyres": drawDailyResult(); break;
     case "result": drawResult(); break;
     case "ending": drawEnding(); break;
+  }
+  if (G.toast) {
+    ctx.font = `20px ${FONT}`; const w = ctx.measureText(G.toast.s).width + 40;
+    ctx.fillStyle = "rgba(0,0,0,.8)"; ctx.fillRect(W / 2 - w / 2, 18, w, 44);
+    ctx.fillStyle = GOLD; ctx.textAlign = "center"; ctx.fillText(G.toast.s, W / 2, 47);
   }
 }
 let last = performance.now();
