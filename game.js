@@ -167,11 +167,22 @@ class Ctl {
   });
 })();
 
+// Полный экран и горизонтальная ориентация на телефоне
+function goFullscreen() {
+  const el = document.documentElement;
+  if (document.fullscreenElement || !el.requestFullscreen) return;
+  el.requestFullscreen({ navigationUI: "hide" }).then(() => {
+    if (screen.orientation && screen.orientation.lock) screen.orientation.lock("landscape").catch(() => {});
+  }).catch(() => {});
+}
+document.getElementById("goFull").addEventListener("click", () => { audioInit(); goFullscreen(); });
+
 // Касание и клики по меню (координаты переводятся в систему 1280×720)
 canvas.addEventListener("pointerdown", (e) => {
   const r = canvas.getBoundingClientRect();
   G.click = { x: (e.clientX - r.left) * W / r.width, y: (e.clientY - r.top) * H / r.height };
   audioInit();
+  if (isTouch && innerWidth > innerHeight) goFullscreen();
 });
 
 /* ------------------------------------------------------------------ */
@@ -186,7 +197,7 @@ const G = {
 };
 let F = null; // текущий бой
 
-const DIFF_NAMES = ["ЛЕГКО", "НОРМА", "ТРУДНО"];
+const DIFF_NAMES = ["EASY", "NORMAL", "HARD"];
 
 function go(screen) { G.screen = screen; G.screenT = 0; G.menuSel = 0; document.body.classList.toggle("fighting", screen === "fight"); }
 
@@ -373,7 +384,7 @@ function hit(att, def, h) {
   }
   // Клинтон: «Я чувствую вашу боль» — урон уходит обратно
   if (def.reflectT > 0 && !h.reflected) {
-    popText("ОТРАЖЕНО!", def.x, def.y - 280, GOLD);
+    popText("REFLECTED!", def.x, def.y - 280, GOLD);
     spark(def.x, def.y - 150, "gold");
     return hit(def, att, Object.assign({}, h, { reflected: true, unparryable: true, unblockable: true, x: att.x, y: att.y - 150 }));
   }
@@ -410,7 +421,7 @@ function hit(att, def, h) {
     def.stun = h.stun || 0.3;
     def.vx = dir * (h.push || 160);
   }
-  if (h.pull && def.hp > 0) { def.vx = -dir * 1100; def.stun = 0.6; popText("ИДИ СЮДА!", att.x, att.y - 290, GOLD, 0.8); }
+  if (h.pull && def.hp > 0) { def.vx = -dir * 1100; def.stun = 0.6; popText("GET OVER HERE!", att.x, att.y - 290, GOLD, 0.8); }
   spark(h.x ?? def.x, h.y ?? def.y - 150, "hit");
   (SFX[h.sfx] || SFX.hit)();
   F.hitstop = h.knock ? 0.11 : 0.06;
@@ -421,7 +432,7 @@ function hit(att, def, h) {
 }
 
 function bushCounter(b, att) {
-  popText("УКЛОНИЛСЯ!", b.x, b.y - 290, GOLD);
+  popText("DODGED!", b.x, b.y - 290, GOLD);
   b.face = Math.sign(att.x - b.x) || b.face;
   b.atk = { kind: "special", type: "counter", m: { start: 0.07, act: 0.12, rec: 0.3 }, t: 0, hit: false, fired: false, crouch: false };
   setSt(b, "atk");
@@ -744,7 +755,7 @@ function finishMatch() {
 
 function updatePause() {
   const n = nav();
-  const items = ["ПРОДОЛЖИТЬ", "ЗВУК: " + (muted ? "ВЫКЛ" : "ВКЛ"), "ВЫЙТИ В МЕНЮ"];
+  const items = ["RESUME", "SOUND: " + (muted ? "OFF" : "ON"), "QUIT TO MENU"];
   if (n.up) { G.pauseSel = (G.pauseSel + items.length - 1) % items.length; SFX.menu(); }
   if (n.down) { G.pauseSel = (G.pauseSel + 1) % items.length; SFX.menu(); }
   const choose = (i) => {
@@ -825,7 +836,7 @@ function updateMenus(dt) {
       if (n.right) { s.cur = (s.cur + 1) % R.length; SFX.menu(); }
       if (n.up || n.down) { s.cur = (s.cur + 3) % R.length; SFX.menu(); }
       let choose = null;
-      if (n.click !== null && n.click >= 0) { if (!isTouch || n.click === s.cur) choose = n.click; else { s.cur = n.click; SFX.menu(); } }
+      if (n.click !== null && n.click >= 0) { s.cur = n.click; choose = n.click; }
       else if (n.ok) choose = s.cur;
       if (n.back || n.click === -99) {
         if (s.step > 0) { s.step--; s.picks.pop(); SFX.back(); } else { go("mode"); SFX.back(); }
@@ -847,10 +858,9 @@ function updateMenus(dt) {
       if (n.down) { G.arenaSel = (G.arenaSel + 1) % count; SFX.menu(); }
       if (n.left) { G.arenaSel = (G.arenaSel + count - 5) % count; SFX.menu(); }
       if (n.right) { G.arenaSel = (G.arenaSel + 5) % count; SFX.menu(); }
-      let choose = n.click !== null ? n.click : n.ok ? G.arenaSel : null;
-      if (n.back) { G.sel.picks.pop(); go("select"); G.sel.step = G.sel.picks.length; SFX.back(); break; }
+      let choose = n.click !== null && n.click >= 0 ? n.click : n.ok ? G.arenaSel : null;
+      if (n.back || n.click === -99) { G.sel.picks.pop(); go("select"); G.sel.step = G.sel.picks.length; SFX.back(); break; }
       if (choose !== null) {
-        if (isTouch && n.click !== null && choose !== G.arenaSel) { G.arenaSel = choose; SFX.menu(); break; }
         const arena = choose === ids.length ? pick(ids) : ids[choose];
         G.pending = { mode: G.mode, p1: G.sel.picks[0], p2: G.sel.picks[1], arena,
           level1: null, level2: G.mode === "cpu" ? G.diff : null };
@@ -1238,7 +1248,7 @@ function drawProj(p) {
       ctx.globalAlpha = 1 - p.t / p.life;
       ctx.strokeStyle = "#ff5a3a"; ctx.lineWidth = 8;
       for (let i = 0; i < 3; i++) { ctx.beginPath(); ctx.ellipse(-dir * i * 22, 0, 16 + i * 6, 70 - i * 12, 0, dir > 0 ? -1.2 : 1.9, dir > 0 ? 1.2 : 4.4); ctx.stroke(); }
-      label("УВОЛЕН!", 0, -96, 26, "#fff");
+      label("FIRED!", 0, -96, 26, "#fff");
       break;
     case "lasso": {
       const f = p.from;
@@ -1257,7 +1267,7 @@ function drawProj(p) {
       ctx.fillStyle = "#f5f5f5"; ctx.fillRect(-150, -28, 300, 56);
       for (let i = 0; i < 4; i++) { ctx.fillStyle = "#b22234"; ctx.fillRect(-150, -28 + i * 14, 300, 6); }
       ctx.fillStyle = "#3c3b6e"; ctx.fillRect(-150, -28, 70, 30);
-      label("МИССИЯ ВЫПОЛНЕНА", 30, 8, 18, "#111");
+      label("MISSION ACCOMPLISHED", 30, 8, 17, "#111");
       break;
     case "wall":
       for (let r = 0; r < 6; r++) for (let c = 0; c < 3; c++) { ctx.fillStyle = (r + c) % 2 ? "#8a8a8a" : "#9e9e9e"; ctx.fillRect(-85 + c * 57 + (r % 2) * 10, -150 + r * 50, 54, 47); }
@@ -1302,7 +1312,7 @@ function meterBar(f, x, flip) {
   ctx.fillStyle = full ? (Math.sin(G.time * 12) > 0 ? "#ff5a3a" : GOLD) : "#4a7cf0";
   ctx.fillRect(flip ? x - w * k : x, y - 12, w * k, 14);
   ctx.font = `16px ${FONT}`; ctx.textAlign = flip ? "right" : "left"; ctx.fillStyle = full ? GOLD : "#cfd8ff";
-  ctx.fillText(full ? "ПАНЧ ГОТОВ!" : "ПАНЧ", flip ? x - w - 10 : x + w + 10, y);
+  ctx.fillText(full ? "SUPER READY!" : "SUPER", flip ? x - w - 10 : x + w + 10, y);
   if (f.cd > 0) { ctx.fillStyle = "rgba(255,255,255,.5)"; ctx.fillRect(flip ? x - w : x, y - 20, w * (1 - f.cd / f.d.specialCd), 3); }
 }
 function bigText(s, y, size, color, alpha = 1) {
@@ -1364,24 +1374,24 @@ function drawFight() {
   if (F.comboShow && F.comboShow.n >= 2) {
     const left = F.comboShow.who === F.p[0];
     ctx.save(); ctx.font = `40px ${FONT}`; ctx.textAlign = left ? "left" : "right";
-    ctx.lineWidth = 6; ctx.strokeStyle = INK; const s = `${F.comboShow.n} ${F.comboShow.n >= 5 ? "УДАРОВ" : "УДАРА"}!`;
+    ctx.lineWidth = 6; ctx.strokeStyle = INK; const s = `${F.comboShow.n} HITS!`;
     ctx.strokeText(s, left ? 40 : W - 40, 200); ctx.fillStyle = GOLD; ctx.fillText(s, left ? 40 : W - 40, 200);
     ctx.restore();
   }
 
   // надписи фаз
   if (F.phase === "intro") {
-    if (F.phaseT < 1.1) bigText(F.round === MAX_ROUNDS ? "ФИНАЛЬНЫЙ РАУНД" : "РАУНД " + F.round, 330, 72, WHITE);
+    if (F.phaseT < 1.1) bigText(F.round === MAX_ROUNDS ? "FINAL ROUND" : "ROUND " + F.round, 330, 72, WHITE);
     else bigText(D.texts.fight, 340, 110, GOLD);
   }
   if (F.phase === "ko") bigText(D.texts.ko, 340, 110, RED, clamp(F.phaseT * 3, 0, 1));
   if (F.phase === "timeup") bigText(D.texts.timeUp, 340, 100, WHITE);
   if (F.phase === "finish") {
     bigText(D.texts.finish, 320, 100, RED, 0.6 + 0.4 * Math.sin(G.time * 10));
-    if (!F.matchWinner.bot) bigText(isTouch ? "ЖМИ СПЕЦ!" : "ЖМИ СПЕЦПРИЁМ!", 390, 34, WHITE);
+    if (!F.matchWinner.bot) bigText(isTouch ? "PRESS SPEC!" : "PRESS SPECIAL!", 390, 34, WHITE);
   }
   if (F.phase === "over") {
-    bigText(F.matchWinner.d.name + " ПОБЕЖДАЕТ!", 300, 64, GOLD);
+    bigText(F.matchWinner.d.name + " WINS!", 300, 64, GOLD);
     bigText(F.matchWinner.d.win, 360, 30, WHITE);
   }
   if (G.paused) drawPause();
@@ -1411,12 +1421,12 @@ function drawDummyOrSprite(f, pose) {
 
 function drawPause() {
   ctx.fillStyle = "rgba(5,6,20,.75)"; ctx.fillRect(0, 0, W, H);
-  bigText("ПАУЗА", 220, 80, GOLD);
-  menuList(["ПРОДОЛЖИТЬ", "ЗВУК: " + (muted ? "ВЫКЛ" : "ВКЛ"), "ВЫЙТИ В МЕНЮ"], G.pauseSel, W / 2, 300, 420, 64);
+  bigText("PAUSED", 220, 80, GOLD);
+  menuList(["RESUME", "SOUND: " + (muted ? "OFF" : "ON"), "QUIT TO MENU"], G.pauseSel, W / 2, 300, 420, 64);
   ctx.font = `18px ${FONT}`; ctx.textAlign = "center"; ctx.fillStyle = "rgba(255,255,255,.7)";
   const help = F.opts.mode === "vs"
-    ? ["1P: W A S D — движение, F — рука, G — нога, H — спец, T — ПАНЧ", "2P: стрелки — движение, J — рука, K — нога, L — спец, I — ПАНЧ"]
-    : ["Стрелки — движение, ↑/пробел — прыжок, ↓ — присед и блок снизу", "A — рука, S — нога, D — спец, A+S или F — ПАНЧ. Блок: держать назад"];
+    ? ["1P: W A S D move, F punch, G kick, H special, T super", "2P: arrows move, J punch, K kick, L special, I super"]
+    : ["Arrows move, Up/Space jump, Down crouch (blocks low)", "A punch, S kick, D special, A+S or F super. Hold back to block"];
   help.forEach((s, i) => ctx.fillText(s, W / 2, 560 + i * 30));
 }
 
@@ -1449,9 +1459,9 @@ function drawLogo(y, size) {
   ctx.save();
   ctx.font = `${size}px ${FONT}`; ctx.textAlign = "center";
   ctx.lineWidth = size / 6; ctx.strokeStyle = INK;
-  ctx.strokeText("ПРЕЗИДЕНТСКИЙ", W / 2, y); ctx.fillStyle = WHITE; ctx.fillText("ПРЕЗИДЕНТСКИЙ", W / 2, y);
+  ctx.strokeText("PRESIDENTIAL", W / 2, y); ctx.fillStyle = WHITE; ctx.fillText("PRESIDENTIAL", W / 2, y);
   ctx.font = `${size * 1.35}px ${FONT}`;
-  ctx.strokeText("НОКАУТ", W / 2, y + size * 1.35); ctx.fillStyle = RED; ctx.fillText("НОКАУТ", W / 2, y + size * 1.35);
+  ctx.strokeText("KNOCKOUT", W / 2, y + size * 1.35); ctx.fillStyle = RED; ctx.fillText("KNOCKOUT", W / 2, y + size * 1.35);
   ctx.restore();
 }
 
@@ -1466,24 +1476,24 @@ function drawTitle() {
     ctx.restore();
   });
   drawLogo(150, 64);
-  if (Math.sin(G.time * 5) > -0.3) bigText(isTouch ? "КОСНИСЬ ЭКРАНА" : "НАЖМИ ЛЮБУЮ КНОПКУ", 330, 30, GOLD);
+  if (Math.sin(G.time * 5) > -0.3) bigText(isTouch ? "TAP TO START" : "PRESS ANY KEY", 330, 30, GOLD);
   ctx.font = `14px ${FONT}`; ctx.textAlign = "center"; ctx.fillStyle = "rgba(255,255,255,.55)";
-  ctx.fillText(D.disclaimer + "  ·  ранняя версия", W / 2, 708);
+  ctx.fillText(D.disclaimer + "  ·  early build", W / 2, 708);
 }
 
 function drawMode() {
   menuBg();
   drawLogo(110, 40);
-  menuList(["АРКАДА", "ПРОТИВ БОТА", "ДВА ИГРОКА", "СЛОЖНОСТЬ: " + DIFF_NAMES[G.diff], "ЗВУК: " + (muted ? "ВЫКЛ" : "ВКЛ")], G.menuSel, W / 2, 250, 460, 62);
+  menuList(["ARCADE", "VS CPU", "2 PLAYERS", "DIFFICULTY: " + DIFF_NAMES[G.diff], "SOUND: " + (muted ? "OFF" : "ON")], G.menuSel, W / 2, 250, 460, 62);
   ctx.font = `16px ${FONT}`; ctx.textAlign = "center"; ctx.fillStyle = "rgba(255,255,255,.65)";
-  const hint = ["7 боёв подряд, в финале — босс в Овальном кабинете", "Свободный бой против компьютера на любой арене", "Вдвоём за одной клавиатурой", "Влияет на бота в аркаде и в бою против бота", ""][G.menuSel];
+  const hint = ["7 fights in a row. Final boss in the Oval Office", "Free fight against the computer on any arena", "Two players on one keyboard", "Affects the CPU in arcade and VS CPU", ""][G.menuSel];
   ctx.fillText(hint, W / 2, 650);
 }
 
 function drawSelect() {
   menuBg();
   const R = rosterVisible(), s = G.sel;
-  const who = G.mode === "arcade" ? "ВЫБЕРИ БОЙЦА" : s.step === 0 ? (G.mode === "vs" ? "ИГРОК 1: ВЫБЕРИ БОЙЦА" : "ВЫБЕРИ СВОЕГО БОЙЦА") : (G.mode === "vs" ? "ИГРОК 2: ВЫБЕРИ БОЙЦА" : "ВЫБЕРИ СОПЕРНИКА");
+  const who = G.mode === "arcade" ? "CHOOSE YOUR FIGHTER" : s.step === 0 ? (G.mode === "vs" ? "PLAYER 1: CHOOSE" : "CHOOSE YOUR FIGHTER") : (G.mode === "vs" ? "PLAYER 2: CHOOSE" : "CHOOSE YOUR OPPONENT");
   bigText(who, 70, 40, s.step === 0 ? GOLD : "#ff7a7a");
   // сетка 3×2
   R.forEach((id, i) => {
@@ -1498,7 +1508,7 @@ function drawSelect() {
     ctx.strokeStyle = on ? (s.step === 0 ? GOLD : "#ff7a7a") : "rgba(255,255,255,.3)"; ctx.lineWidth = on ? 5 : 2; ctx.strokeRect(x, y, w, h);
     ctx.fillStyle = "rgba(0,0,0,.7)"; ctx.fillRect(x, y + h - 38, w, 38);
     label(lk ? "???" : D.fighters[id].name, x + w / 2, y + h - 12, D.fighters[id].name.length > 9 ? 15 : 22, WHITE);
-    s.picks.forEach((pid, k) => { if (pid === id) label(k === 0 ? "1P" : G.mode === "vs" ? "2P" : "БОТ", x + 30, y + 30, 22, k === 0 ? GOLD : "#ff7a7a"); });
+    s.picks.forEach((pid, k) => { if (pid === id) label(k === 0 ? "1P" : G.mode === "vs" ? "2P" : "CPU", x + 30, y + 30, 22, k === 0 ? GOLD : "#ff7a7a"); });
     G.hits.push({ x, y, w, h, i });
   });
   // карточка бойца
@@ -1511,23 +1521,23 @@ function drawSelect() {
     ctx.restore();
     ctx.textAlign = "left"; ctx.font = `30px ${FONT}`; ctx.fillStyle = GOLD; ctx.fillText(d.name, 920, 170);
     ctx.font = `16px ${FONT}`; ctx.fillStyle = "rgba(255,255,255,.8)"; ctx.fillText(d.full, 920, 196);
-    const stats = [["СКОРОСТЬ", d.speed], ["СИЛА", d.power], ["ЗДОРОВЬЕ", d.health]];
+    const stats = [["SPEED", d.speed], ["POWER", d.power], ["HEALTH", d.health]];
     stats.forEach(([n, v], i) => {
       const y = 240 + i * 48; ctx.fillStyle = WHITE; ctx.font = `15px ${FONT}`; ctx.fillText(n, 920, y);
       ctx.fillStyle = "rgba(255,255,255,.15)"; ctx.fillRect(920, y + 8, 280, 14);
       ctx.fillStyle = GOLD; ctx.fillRect(920, y + 8, 280 * clamp((v - 0.7) / 0.5, 0.1, 1), 14);
     });
-    ctx.font = `15px ${FONT}`; ctx.fillStyle = "#9fc2ff"; ctx.fillText("СПЕЦ:", 920, 410); ctx.fillStyle = WHITE; ctx.fillText(d.special.name, 990, 410);
-    ctx.fillStyle = "#ff9a9a"; ctx.fillText("ПАНЧ:", 920, 440); ctx.fillStyle = WHITE;
-    ctx.font = `14px ${FONT}`; wrapText(d.superMove.name, 990, 440, 230, 20);
+    ctx.font = `15px ${FONT}`; ctx.fillStyle = "#9fc2ff"; ctx.fillText("SPECIAL:", 920, 410); ctx.fillStyle = WHITE; ctx.fillText(d.special.name, 1010, 410);
+    ctx.fillStyle = "#ff9a9a"; ctx.fillText("SUPER:", 920, 440); ctx.fillStyle = WHITE;
+    ctx.font = `14px ${FONT}`; wrapText(d.superMove.name, 1010, 440, 210, 20);
   } else {
-    label("СЕКРЕТНЫЙ БОЕЦ", 945, 330, 34, GOLD);
+    label("SECRET FIGHTER", 945, 330, 34, GOLD);
     ctx.font = `18px ${FONT}`; ctx.fillStyle = WHITE; ctx.textAlign = "center";
-    ctx.fillText("Откроется после прохождения аркады", 945, 380);
+    ctx.fillText("Beat the arcade to unlock", 945, 380);
   }
   ctx.font = `15px ${FONT}`; ctx.textAlign = "center"; ctx.fillStyle = "rgba(255,255,255,.6)";
-  ctx.fillText(isTouch ? "Коснись бойца, потом ещё раз — чтобы выбрать" : "Стрелки — выбор, Enter — подтвердить, Esc — назад", W / 2, 640);
-  if (isTouch) { G.hits.push({ x: 20, y: 660, w: 160, h: 50, i: -99 }); label("← НАЗАД", 100, 694, 20, WHITE); }
+  ctx.fillText(isTouch ? "Tap a fighter to choose" : "Arrows to move, Enter to choose, Esc to go back", W / 2, 640);
+  if (isTouch) { G.hits.push({ x: 20, y: 660, w: 160, h: 50, i: -99 }); label("‹ BACK", 100, 694, 20, WHITE); }
 }
 
 function drawArenaSelect() {
@@ -1535,8 +1545,8 @@ function drawArenaSelect() {
   const cur = G.arenaSel < ids.length ? ids[G.arenaSel] : null;
   if (cur) drawArena(cur, false); else menuBg();
   ctx.fillStyle = "rgba(5,6,20,.55)"; ctx.fillRect(0, 0, W, H);
-  bigText("ВЫБЕРИ АРЕНУ", 70, 40, GOLD);
-  const items = ids.map((k) => D.arenas[k].name).concat(["СЛУЧАЙНАЯ"]);
+  bigText("CHOOSE AN ARENA", 70, 40, GOLD);
+  const items = ids.map((k) => D.arenas[k].name).concat(["RANDOM"]);
   items.forEach((s, i) => {
     const col = Math.floor(i / 5), row = i % 5;
     const x = 140 + col * 520, y = 130 + row * 92, w = 480, h = 72, on = i === G.arenaSel;
@@ -1544,27 +1554,28 @@ function drawArenaSelect() {
     ctx.strokeStyle = on ? "#fff" : "rgba(255,255,255,.3)"; ctx.lineWidth = 2; ctx.strokeRect(x, y, w, h);
     ctx.font = `24px ${FONT}`; ctx.textAlign = "left"; ctx.fillStyle = on ? INK : WHITE; ctx.fillText(s, x + 20, y + 46);
     const a = D.arenas[ids[i]];
-    if (a && a.home) { ctx.font = `13px ${FONT}`; ctx.textAlign = "right"; ctx.fillStyle = on ? INK : "rgba(255,255,255,.6)"; ctx.fillText("ДОМА: " + D.fighters[a.home].name, x + w - 14, y + 44); }
+    if (a && a.home) { ctx.font = `13px ${FONT}`; ctx.textAlign = "right"; ctx.fillStyle = on ? INK : "rgba(255,255,255,.6)"; ctx.fillText("HOME: " + D.fighters[a.home].name, x + w - 14, y + 44); }
     G.hits.push({ x, y, w, h, i });
   });
+  if (isTouch) { G.hits.push({ x: 20, y: 660, w: 160, h: 50, i: -99 }); label("‹ BACK", 100, 694, 20, WHITE); }
 }
 
 function drawLadder() {
   menuBg();
   const L = G.ladder;
-  bigText("ПУТЬ К ПЯТОМУ СРОКУ", 70, 40, GOLD);
+  bigText("ROAD TO THE FIFTH TERM", 70, 40, GOLD);
   L.list.forEach((s, i) => {
     const y = 110 + i * 74, done = i < L.idx, cur = i === L.idx;
     ctx.fillStyle = cur ? "rgba(255,213,74,.95)" : done ? "rgba(40,90,50,.85)" : "rgba(20,26,60,.85)";
     ctx.fillRect(230, y, 820, 62);
     ctx.save(); ctx.beginPath(); ctx.rect(240, y + 2, 60, 58); ctx.clip(); drawPortrait(s.opp, 236, y + 2, 66, false); ctx.restore();
     ctx.font = `22px ${FONT}`; ctx.textAlign = "left"; ctx.fillStyle = cur ? INK : WHITE;
-    ctx.fillText(`${i + 1}. ${s.boss ? "БОСС: " : ""}${D.fighters[s.opp].name}`, 320, y + 30);
+    ctx.fillText(`${i + 1}. ${s.boss ? "BOSS: " : ""}${D.fighters[s.opp].name}`, 320, y + 30);
     ctx.font = `14px ${FONT}`; ctx.fillStyle = cur ? INK : "rgba(255,255,255,.65)";
     ctx.fillText(`${D.arcade.tourNames[s.tour]} · ${D.arenas[s.arena].name}`, 320, y + 52);
     if (done) label("✓", 1010, y + 44, 34, "#7dff9a");
   });
-  if (Math.sin(G.time * 5) > -0.3) bigText(isTouch ? "КОСНИСЬ — В БОЙ" : "ENTER — В БОЙ", 690, 28, WHITE);
+  if (Math.sin(G.time * 5) > -0.3) bigText(isTouch ? "TAP TO FIGHT" : "PRESS ENTER TO FIGHT", 690, 28, WHITE);
 }
 
 function drawVS() {
@@ -1586,8 +1597,8 @@ function drawVS() {
 function drawContinue() {
   menuBg();
   bigText(D.texts.impeach, 200, 90, RED);
-  bigText("ПРОДОЛЖИТЬ?", 300, 44, WHITE);
-  menuList(["ДА — ЕЩЁ РАЗ", "НЕТ — В МЕНЮ"], G.menuSel, W / 2, 360, 420, 64);
+  bigText("CONTINUE?", 300, 44, WHITE);
+  menuList(["YES — TRY AGAIN", "NO — MAIN MENU"], G.menuSel, W / 2, 360, 420, 64);
 }
 
 function drawResult() {
@@ -1596,8 +1607,8 @@ function drawResult() {
   ctx.save(); ctx.translate(W / 2, 470); ctx.scale(1.5, 1.5);
   drawDummy(w.d, { cr: 0, lean: 0, arms: "up", legs: "stand", lying: 0, bob: Math.sin(G.time * 6) * 3 }, false, 0);
   ctx.restore();
-  bigText(w.d.name + " ПОБЕЖДАЕТ!", 90, 56, GOLD);
-  menuList(["РЕВАНШ", "СМЕНИТЬ БОЙЦОВ", "В МЕНЮ"], G.menuSel, W / 2, 500, 400, 52, 10);
+  bigText(w.d.name + " WINS!", 90, 56, GOLD);
+  menuList(["REMATCH", "CHANGE FIGHTERS", "MAIN MENU"], G.menuSel, W / 2, 500, 400, 52, 10);
 }
 
 function drawEnding() {
@@ -1609,7 +1620,7 @@ function drawEnding() {
   bigText(D.texts.champion, 100, 80, GOLD);
   ctx.font = `24px ${FONT}`; ctx.textAlign = "center"; ctx.fillStyle = WHITE;
   wrapText(d.ending, W / 2, 530, 980, 32);
-  if (G.newUnlock) bigText("ОТКРЫТ НОВЫЙ БОЕЦ: МИСТЕР РЕЙТИНГ", 660, 26, "#6fd3ff");
+  if (G.newUnlock) bigText("NEW FIGHTER UNLOCKED: MR. RATING", 660, 26, "#6fd3ff");
 }
 
 /* ------------------------------------------------------------------ */

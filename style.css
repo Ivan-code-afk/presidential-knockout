@@ -35,3 +35,17 @@ body.touch.fighting #touch { display: block; }
 #pauseBtn {
   position: absolute; left: 2vw; top: 2vh; width: 9vmin; height: 9vmin; font-size: 3vmin; pointer-events: auto;
 }
+
+/* Экран «поверните телефон»: только на телефонах в вертикальном положении */
+#rotate {
+  display: none; position: fixed; inset: 0; z-index: 10; background: #0b0f24; color: #fff;
+  flex-direction: column; align-items: center; justify-content: center; gap: 4vh;
+  font: 700 6vw/1.2 "Arial Black", system-ui, sans-serif; text-align: center;
+}
+#rotate .rotIcon { font-size: 18vw; }
+#rotate button {
+  font: 700 5vw/1 "Arial Black", system-ui, sans-serif; padding: 4vw 7vw; border: 0; border-radius: 3vw;
+  background: #ffd54a; color: #0b0f24;
+}
+@media (orientation: portrait) { body.touch #rotate { display: flex; } }
+#btns button { font-size: 2.6vmin; }
