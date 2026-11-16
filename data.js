@@ -160,10 +160,13 @@ window.GAME_DATA = {
     { a: "rating", b: "*",      lines: ["You're live in 3... 2...", "Who let the TV in here?"] },
     { a: "bushsr", b: "bush",   lines: ["Son?!", "Dad?!"] },
     { a: "biden", b: "obama",   lines: ["Listen, pal, I was your VP!", "Joe... not now."] },
-    { a: "biden", b: "trump",   lines: ["Come on, man!", "Sleepy! Very sleepy!"] },
+    { a: "biden", b: "trump",   lines: ["Come on, man!", "Fake news! Total fake news!"] },
+    { a: "bushsr", b: "clinton", lines: ["Read my lips!", "It's the economy, George!"] },
+    { a: "lincoln", b: "washington", lines: ["After you, General.", "No, after you, Mr. President."] },
     { a: "nixon", b: "*",       lines: ["I am not a crook.", "Is this being recorded?"] },
     { a: "washington", b: "*",  lines: ["I cannot tell a lie: you're going down.", "Wait, the FIRST president?"] },
     { a: "lincoln", b: "*",     lines: ["Four score and seven punches ago...", "That hat is a weapon."] },
+    { a: "fdr", b: "*",         lines: ["Good evening, friends.", "Who brought a radio to a fight?"] },
   ],
 
   // Задание дня: каждый день новое условие боя
