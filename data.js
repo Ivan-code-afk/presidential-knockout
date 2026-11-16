@@ -61,7 +61,7 @@ window.GAME_DATA = {
       // Реплики: пузырь над головой; голос — sounds/voice/trump_intro0.mp3 и т.д. (если файл есть)
       lines: { intro: ["Wrong!", "Nobody fights better than me."], super: "Big league!", win: ["You're fired!", "Tremendous. Just tremendous."] },
       fatality: "The opponent is sat in a barber chair in the middle of the ring and shaved bald.",
-      ending: "Turns Mr. Rating's studio into a golden ballroom and launches his own show, where he fires Mr. Rating himself.",
+      ending: "Drains the swamp, builds a golden ballroom on the spot and fires Uncle Swamp on live TV.",
     },
     reagan: {
       name: "REAGAN", full: "Ronald Reagan",
@@ -79,7 +79,7 @@ window.GAME_DATA = {
       // Реплики: пузырь над головой; голос — sounds/voice/reagan_intro0.mp3 и т.д. (если файл есть)
       lines: { intro: ["Well... there you go again.", "Win one for the Gipper!"], super: "Tear down this wall!", win: ["It's morning in America.", "I won't exploit your youth and inexperience."] },
       fatality: "Star Wars: a laser satellite turns the opponent into a pile of jelly beans.",
-      ending: "Shoots a western about the tournament and plays the lead himself. Mr. Rating is played by an extra.",
+      ending: "Shoots a western about the tournament and plays the lead himself. Uncle Swamp is played by an extra.",
     },
     obama: {
       name: "OBAMA", full: "Barack Obama",
@@ -99,28 +99,28 @@ window.GAME_DATA = {
       fatality: "Mic drop: the microphone falls on the opponent from skyscraper height.",
       ending: "Beats every defeated president at basketball, then signs off: \"Obama out.\"",
     },
-    rating: {
-      name: "MR. RATING", full: "Mr. Rating", boss: true,
-      speed: 1.05, power: 1.15, health: 1.15,
+    swamp: {
+      name: "UNCLE SWAMP", full: "Uncle Swamp", boss: true,
+      speed: 1.0, power: 1.05, health: 1.1,
       specials: {
-        n: { name: "COMMERCIAL BREAK", type: "teleport", cd: 3.2, desc: "Vanish and strike from behind" },
-        f: { name: "CHANNEL SURF", type: "tv", cd: 2.8, desc: "Throws a flying TV set" },
-        d: { name: "RATINGS SPIKE", type: "spike", cd: 3.0, desc: "Arrow shooting up. Stops jumps" },
+        n: { name: "RED TAPE", type: "tape", cd: 3.0, desc: "Wraps the opponent in red tape. Slows them down" },
+        f: { name: "SUBPOENA", type: "subpoena", cd: 2.8, desc: "Throws a flying subpoena" },
+        d: { name: "SHADOW CABINET", type: "teleport", cd: 3.2, desc: "Vanishes into a filing cabinet, strikes from behind" },
       },
-      passive: { name: "PRIME TIME", desc: "At half health in the Oval Office he switches the channel" },
-      superMove: { name: "RATINGS CRASH", type: "rain" },
-      colors: { shirt: "#151515", pants: "#151515", skin: "#cfcfcf", hair: "#333333", accent: "#6fd3ff", shoes: "#000000" },
-      look: { tvHead: true },
-      win: "Ratings are up!",
-      // Реплики: пузырь над головой; голос — sounds/voice/rating_intro0.mp3 и т.д. (если файл есть)
-      lines: { intro: ["Stay tuned.", "You're live in 3... 2..."], super: "Ratings through the roof!", win: ["Ratings are up!", "Cancelled."] },
-      fatality: "The opponent dissolves into TV static.",
-      ending: "Mr. Rating takes over every channel. Next season: no presidents.",
+      passive: { name: "TOO BIG TO FAIL", desc: "As the final boss, gets back up once with a quarter of his health" },
+      superMove: { name: "GOVERNMENT SHUTDOWN", type: "shutdown" },
+      colors: { shirt: "#1e2f7a", pants: "#f2f2f2", skin: "#d9c7b0", hair: "#f4f4f4", accent: "#b22234", shoes: "#111111" },
+      look: { uncle: true },
+      win: "The swamp always wins.",
+      // Реплики: пузырь над головой; голос — sounds/voice/swamp_intro0.mp3 и т.д. (если файл есть)
+      lines: { intro: ["I want YOU... to lose.", "Welcome to the swamp."], super: "Government shutdown!", win: ["The swamp always wins.", "Drain me? Ha!"] },
+      fatality: "The opponent is buried under ten thousand forms. In triplicate.",
+      ending: "Uncle Swamp takes the Oval Office. Next election: postponed indefinitely.",
     },
   },
 
   // Порядок на экране выбора. Босс открывается после прохождения аркады.
-  roster: ["bush", "clinton", "trump", "reagan", "obama", "rating"],
+  roster: ["bush", "clinton", "trump", "reagan", "obama", "swamp"],
 
   // bg — путь к фону арены (assets/arenas/*.webp). Пока null: рисуется фон-заглушка.
   arenas: {
@@ -133,14 +133,14 @@ window.GAME_DATA = {
     nightshow: { name: "LATE NIGHT SHOW",     tour: 3, theme: "tvshow", home: "clinton", bg: null },
     dinner:    { name: "CORRESPONDENTS' DINNER", tour: 3, theme: "ballroom", home: "obama", bg: null },
     capitol:   { name: "THE HOUSE FLOOR",     tour: 3, theme: "congress", home: null,   bg: null },
-    oval:      { name: "THE OVAL OFFICE",     tour: 4, theme: "oval",   home: "rating",  bg: null, bgAlt: null },
+    oval:      { name: "THE OVAL OFFICE",     tour: 4, theme: "oval",   home: "swamp",  bg: null, bgAlt: null },
   },
 
   arcade: {
     // 6 боёв на аренах своих туров + босс в Овальном кабинете
     tours: [1, 1, 2, 2, 3, 3],
     levels: [0, 0, 1, 1, 2, 2],
-    boss: { fighter: "rating", arena: "oval", level: 2 },
+    boss: { fighter: "swamp", arena: "oval", level: 2 },
     tourNames: { 1: "HEARTLAND TOUR", 2: "BIG ARENA TOUR", 3: "PRIME TIME TOUR", 4: "THE FINAL" },
   },
 
@@ -157,7 +157,7 @@ window.GAME_DATA = {
     { a: "clinton", b: "obama", lines: ["I was the first rock-star president.", "And I'm the encore."] },
     { a: "clinton", b: "reagan", lines: ["It's the economy!", "Trickle down, son. Trickle down."] },
     { a: "reagan", b: "obama",  lines: ["Win one for the Gipper!", "Yes, we can!"] },
-    { a: "rating", b: "*",      lines: ["You're live in 3... 2...", "Who let the TV in here?"] },
+    { a: "swamp", b: "*",       lines: ["I want YOU... to lose.", "Who invited the swamp?"] },
     { a: "bushsr", b: "bush",   lines: ["Son?!", "Dad?!"] },
     { a: "biden", b: "obama",   lines: ["Listen, pal, I was your VP!", "Joe... not now."] },
     { a: "biden", b: "trump",   lines: ["Come on, man!", "Fake news! Total fake news!"] },
@@ -194,6 +194,8 @@ window.GAME_DATA = {
     fatality: "FATALITY!",
     perfect: "PERFECT!",
     adBreak: "COMMERCIAL BREAK!",
+    swamp: "WELCOME TO THE SWAMP!",
+    bailout: "TOO BIG TO FAIL!",
     champion: "FIFTH TERM!",
     impeach: "IMPEACHED",
   },
