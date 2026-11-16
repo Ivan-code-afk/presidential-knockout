@@ -112,36 +112,6 @@ window.SPRITES = {
    "ax": 96,
    "ay": 202
   },
-  "parry": {
-   "src": "assets/sprites/bush/parry.png",
-   "ax": 112,
-   "ay": 193
-  },
-  "super": {
-   "src": "assets/sprites/bush/super.png",
-   "ax": 74,
-   "ay": 293
-  },
-  "sp_decider_win": {
-   "src": "assets/sprites/bush/sp_decider_win.png",
-   "ax": 143,
-   "ay": 303
-  },
-  "item_shoe": {
-   "src": "assets/sprites/bush/item_shoe.png",
-   "ax": 55,
-   "ay": 31
-  },
-  "item_banner": {
-   "src": "assets/sprites/bush/item_banner.png",
-   "ax": 182,
-   "ay": 86
-  },
-  "fatality": {
-   "src": "assets/sprites/bush/fatality.png",
-   "ax": 118,
-   "ay": 281
-  },
   "win": {
    "src": "assets/sprites/bush/win.png",
    "ax": 71,
@@ -172,6 +142,36 @@ window.SPRITES = {
    "ax": 73,
    "ay": 310
   },
+  "parry": {
+   "src": "assets/sprites/bush/parry.png",
+   "ax": 112,
+   "ay": 193
+  },
+  "super": {
+   "src": "assets/sprites/bush/super.png",
+   "ax": 74,
+   "ay": 293
+  },
+  "sp_decider_win": {
+   "src": "assets/sprites/bush/sp_decider_win.png",
+   "ax": 143,
+   "ay": 303
+  },
+  "item_shoe": {
+   "src": "assets/sprites/bush/item_shoe.png",
+   "ax": 55,
+   "ay": 31
+  },
+  "item_banner": {
+   "src": "assets/sprites/bush/item_banner.png",
+   "ax": 182,
+   "ay": 86
+  },
+  "fatality": {
+   "src": "assets/sprites/bush/fatality.png",
+   "ax": 118,
+   "ay": 281
+  },
   "sp_brush": {
    "src": "assets/sprites/bush/sp_brush.png",
    "ax": 142,
@@ -191,6 +191,168 @@ window.SPRITES = {
    "src": "assets/sprites/bush/item_brush.png",
    "ax": 132,
    "ay": 33
+  }
+ },
+ "clinton": {
+  "idle": {
+   "src": "assets/sprites/clinton/idle.png",
+   "ax": 69,
+   "ay": 281
+  },
+  "crouch": {
+   "src": "assets/sprites/clinton/crouch.png",
+   "ax": 71,
+   "ay": 209
+  },
+  "jump": {
+   "src": "assets/sprites/clinton/jump.png",
+   "ax": 70,
+   "ay": 205
+  },
+  "walk_1": {
+   "src": "assets/sprites/clinton/walk_1.png",
+   "ax": 101,
+   "ay": 281
+  },
+  "walk_2": {
+   "src": "assets/sprites/clinton/walk_2.png",
+   "ax": 60,
+   "ay": 280
+  },
+  "walk_3": {
+   "src": "assets/sprites/clinton/walk_3.png",
+   "ax": 102,
+   "ay": 280
+  },
+  "walk_4": {
+   "src": "assets/sprites/clinton/walk_4.png",
+   "ax": 55,
+   "ay": 280
+  },
+  "punch_0": {
+   "src": "assets/sprites/clinton/punch_0.png",
+   "ax": 79,
+   "ay": 281
+  },
+  "punch": {
+   "src": "assets/sprites/clinton/punch.png",
+   "ax": 80,
+   "ay": 281
+  },
+  "counter": {
+   "src": "assets/sprites/clinton/counter.png",
+   "ax": 104,
+   "ay": 284
+  },
+  "kick": {
+   "src": "assets/sprites/clinton/kick.png",
+   "ax": 62,
+   "ay": 281
+  },
+  "akick": {
+   "src": "assets/sprites/clinton/akick.png",
+   "ax": 120,
+   "ay": 249
+  },
+  "cpunch": {
+   "src": "assets/sprites/clinton/cpunch.png",
+   "ax": 68,
+   "ay": 192
+  },
+  "ckick": {
+   "src": "assets/sprites/clinton/ckick.png",
+   "ax": 68,
+   "ay": 192
+  },
+  "super_0": {
+   "src": "assets/sprites/clinton/super_0.png",
+   "ax": 82,
+   "ay": 274
+  },
+  "block": {
+   "src": "assets/sprites/clinton/block.png",
+   "ax": 72,
+   "ay": 282
+  },
+  "crouch_block": {
+   "src": "assets/sprites/clinton/crouch_block.png",
+   "ax": 68,
+   "ay": 216
+  },
+  "hurt": {
+   "src": "assets/sprites/clinton/hurt.png",
+   "ax": 110,
+   "ay": 280
+  },
+  "fall": {
+   "src": "assets/sprites/clinton/fall.png",
+   "ax": 144,
+   "ay": 228
+  },
+  "ko": {
+   "src": "assets/sprites/clinton/ko.png",
+   "ax": 174,
+   "ay": 99
+  },
+  "getup": {
+   "src": "assets/sprites/clinton/getup.png",
+   "ax": 99,
+   "ay": 230
+  },
+  "win": {
+   "src": "assets/sprites/clinton/win.png",
+   "ax": 90,
+   "ay": 261
+  },
+  "lose": {
+   "src": "assets/sprites/clinton/lose.png",
+   "ax": 68,
+   "ay": 240
+  },
+  "portrait": {
+   "src": "assets/sprites/clinton/portrait.png",
+   "ax": 0,
+   "ay": 0
+  },
+  "throw_0": {
+   "src": "assets/sprites/clinton/throw_0.png",
+   "ax": 98,
+   "ay": 295
+  },
+  "throw": {
+   "src": "assets/sprites/clinton/throw.png",
+   "ax": 124,
+   "ay": 300
+  },
+  "thrown": {
+   "src": "assets/sprites/clinton/thrown.png",
+   "ax": 75,
+   "ay": 309
+  },
+  "sp_notes": {
+   "src": "assets/sprites/clinton/sp_notes.png",
+   "ax": 90,
+   "ay": 261
+  },
+  "special": {
+   "src": "assets/sprites/clinton/special.png",
+   "ax": 90,
+   "ay": 261
+  },
+  "sp_jog": {
+   "src": "assets/sprites/clinton/sp_jog.png",
+   "ax": 90,
+   "ay": 290
+  },
+  "sp_townhall": {
+   "src": "assets/sprites/clinton/sp_townhall.png",
+   "ax": 100,
+   "ay": 287
+  },
+  "super": {
+   "src": "assets/sprites/clinton/super.png",
+   "ax": 148,
+   "ay": 303
   }
  }
 };

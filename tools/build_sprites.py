@@ -27,25 +27,42 @@ COMMON_REF = {
     "01": (0, 1.0), "02": (0, 1.0), "03": (0, 1.0), "04": (1, 1.0), "05": (2, 0.98), "06": (0, 1.0),
     "07": (None, 0.394), "08": (2, 1.08), "09": (2, 1.0), "10": (0, 1.08), "11": (2, 1.1), "12": (1, 1.12),
 }
-MAP = {
+# общие позы: листы 01–07, 10, 11 одинаковы у всех бойцов
+BASE = {
+    "idle": ("01", 0, "feet"), "crouch": ("01", 1, "feet"), "jump": ("01", 2, "air"),
+    "walk_1": ("02", 0, "feet"), "walk_2": ("02", 1, "feet"), "walk_3": ("02", 2, "feet"), "walk_4": ("02", 3, "feet"),
+    "punch_0": ("03", 0, "feet"), "punch": ("03", 1, "feet"), "hook": ("03", 2, "feet"),
+    "counter": ("04", 0, "feet"), "kick": ("04", 1, "feet"), "akick": ("04", 2, "air"),
+    "cpunch": ("05", 0, "feet"), "ckick": ("05", 0, "feet"), "super_0": ("05", 1, "feet"),
+    "block": ("06", 0, "feet"), "crouch_block": ("06", 1, "feet"), "hurt": ("06", 2, "feet"),
+    "fall": ("07", 0, "air"), "ko": ("07", 1, "lie"), "getup": ("07", 2, "feet"),
+    "win": ("10", 0, "feet"), "lose": ("10", 1, "feet"), "portrait": ("10", 2, "portrait"),
+    "throw_0": ("11", 0, "feet"), "throw": ("11", 1, "feet"), "thrown": ("11", 2, "feet"),
+}
+# личные позы (листы 08, 09, 12) и исключения; None — позу не брать
+OWN = {
     "bush": {
-        "idle": ("01", 0, "feet"), "crouch": ("01", 1, "feet"), "jump": ("01", 2, "air"),
-        "walk_1": ("02", 0, "feet"), "walk_2": ("02", 1, "feet"), "walk_3": ("02", 2, "feet"), "walk_4": ("02", 3, "feet"),
-        "punch_0": ("03", 0, "feet"), "punch": ("03", 1, "feet"), "hook": ("03", 2, "feet"),
-        "counter": ("04", 0, "feet"), "kick": ("04", 1, "feet"), "akick": ("04", 2, "air"),
-        "cpunch": ("05", 0, "feet"), "ckick": ("05", 0, "feet"), "super_0": ("05", 1, "feet"),
-        "block": ("06", 0, "feet"), "crouch_block": ("06", 1, "feet"), "hurt": ("06", 2, "feet"),
-        "fall": ("07", 0, "air"), "ko": ("07", 1, "lie"), "getup": ("07", 2, "feet"),
         "parry": ("08", 0, "feet"), "super": ("08", 1, "air"), "sp_decider_win": ("08", 2, "feet"),
         "item_shoe": ("09", 0, "item"), "item_banner": ("09", 1, "item"), "fatality": ("09", 2, "feet"),
-        "win": ("10", 0, "feet"), "lose": ("10", 1, "feet"), "portrait": ("10", 2, "portrait"),
-        "throw_0": ("11", 0, "feet"), "throw": ("11", 1, "feet"), "thrown": ("11", 2, "feet"),
         "sp_brush": ("12", 0, "feet"), "special": ("12", 0, "feet"), "sp_decider": ("12", 1, "feet"),
         "item_brush": ("12", 2, "item"),
     },
+    "clinton": {
+        # листы 08 и 09 пришли с позами Буша — временно берём что подходит, ждём правильные
+        "hook": None,
+        "sp_notes": ("10", 0, "feet"), "special": ("10", 0, "feet"),
+        "sp_jog": ("12", 0, "feet"), "sp_townhall": ("12", 2, "feet"),
+        "super": ("08", 2, "feet"),
+    },
 }
+MAP = {}
+for _fid, _own in OWN.items():
+    MAP[_fid] = dict(BASE)
+    for _k, _v in _own.items():
+        if _v is None: MAP[_fid].pop(_k, None)
+        else: MAP[_fid][_k] = _v
 # если в листе есть особая фигура для масштаба — можно переопределить для бойца
-REF_OVERRIDE = {"bush": {"00": (0, 1.08)}}
+REF_OVERRIDE = {"bush": {"00": (0, 1.08)}, "clinton": {"12": (2, 1.02), "10": (0, 0.93)}}
 
 
 def mask_of(a):
