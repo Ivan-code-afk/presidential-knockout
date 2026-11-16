@@ -856,8 +856,8 @@ function updateMenus(dt) {
       const ids = Object.keys(D.arenas), count = ids.length + 1;
       if (n.up) { G.arenaSel = (G.arenaSel + count - 1) % count; SFX.menu(); }
       if (n.down) { G.arenaSel = (G.arenaSel + 1) % count; SFX.menu(); }
-      if (n.left) { G.arenaSel = (G.arenaSel + count - 5) % count; SFX.menu(); }
-      if (n.right) { G.arenaSel = (G.arenaSel + 5) % count; SFX.menu(); }
+      if (n.left) { G.arenaSel = (G.arenaSel + count - 6) % count; SFX.menu(); }
+      if (n.right) { G.arenaSel = (G.arenaSel + 6) % count; SFX.menu(); }
       let choose = n.click !== null && n.click >= 0 ? n.click : n.ok ? G.arenaSel : null;
       if (n.back || n.click === -99) { G.sel.picks.pop(); go("select"); G.sel.step = G.sel.picks.length; SFX.back(); break; }
       if (choose !== null) {
@@ -1183,6 +1183,86 @@ const THEMES = {
     for (let i = 0; i < 6; i++) { ctx.fillStyle = "#f4f1ea"; ctx.beginPath(); ctx.ellipse(110 + i * 215, 540, 80, 22, 0, 0, 7); ctx.fill(); ctx.fillRect(40 + i * 215, 540, 140, 50); }
     ctx.fillStyle = "#5a3a1a"; ctx.fillRect(590, 380, 100, 140); ctx.fillStyle = "#c9a227"; ctx.beginPath(); ctx.arc(640, 430, 22, 0, 7); ctx.fill();
     ground("#8a5a2a", "#4a2e12");
+  },
+  congress() {
+    // Зал Палаты представителей: трибуна спикера, полукруглые ряды конгрессменов в костюмах.
+    // Часть зала дерётся между собой, летают бумаги, спикер стучит молотком на сильных ударах.
+    sky(["#241a10", "#3e3020", "#5a4630"]);
+    ctx.fillStyle = "#2e2214"; ctx.fillRect(0, 0, W, 110);
+    for (let i = 0; i < 9; i++) { ctx.fillStyle = "#b8a27a"; ctx.fillRect(60 + i * 140, 14, 16, 96); }
+    // трибуна спикера
+    ctx.fillStyle = "#5a3a1e"; ctx.fillRect(500, 170, 280, 170); ctx.fillStyle = "#7a5230"; ctx.fillRect(480, 160, 320, 22);
+    ctx.fillStyle = "#c9a227"; ctx.beginPath(); ctx.arc(640, 260, 32, 0, 7); ctx.fill();
+    ctx.fillStyle = "#3a2410"; ctx.beginPath(); ctx.arc(640, 260, 24, 0, 7); ctx.fill();
+    ctx.fillStyle = "#b22234"; ctx.fillRect(595, 100, 90, 52); ctx.fillStyle = "#fff"; for (let j = 0; j < 4; j++) ctx.fillRect(595, 108 + j * 11, 90, 5);
+    ctx.fillStyle = "#3c3b6e"; ctx.fillRect(595, 100, 38, 26);
+    const bang = F && F.shake > 3 && Math.sin(G.time * 30) > 0;
+    ctx.save(); ctx.translate(745, 158); ctx.rotate(bang ? 0.7 : -0.35);
+    ctx.fillStyle = "#6a3e1e"; ctx.fillRect(-4, -42, 8, 42); ctx.fillRect(-17, -52, 34, 15); ctx.restore();
+
+    const suits = ["#1d2438", "#2a2a2e", "#14161c", "#3a3f4a", "#24304a", "#2e2622"];
+    const ties = ["#b3202a", "#1f3f9a", "#8a1c2a", "#2c5fbf", "#c9a227", "#6a1a1a"];
+    const skins = ["#f0c4a0", "#d8a882", "#a8754e", "#7a4e30", "#f4d0b0", "#c08a62"];
+    const hairs = ["#cfcfcf", "#4a3020", "#8a8a8a", "#1e1e1e", "#e6dcc8", "#6a4a2a"];
+    const member = (x, y, k, seed, mode) => {
+      const t = G.time, s = seed;
+      const dx = mode === 2 ? Math.sin(t * 13 + s) * 5 * k : 0;
+      const dy = mode === 2 ? -Math.abs(Math.sin(t * 9 + s)) * 7 * k : mode === 1 ? -6 * k : Math.sin(t * 1.7 + s) * 1.2;
+      const X = x + dx, Y = y + dy;
+      const suit = suits[s % suits.length], tie = ties[(s * 3) % ties.length], skin = skins[(s * 5) % skins.length], hair = hairs[(s * 7) % hairs.length];
+      const woman = s % 4 === 1;
+      // руки за спиной/поднятые
+      ctx.strokeStyle = suit; ctx.lineWidth = 8 * k; ctx.lineCap = "round";
+      if (mode === 2) { // дерётся: машет кулаком
+        const a = Math.sin(t * 15 + s);
+        ctx.beginPath(); ctx.moveTo(X + 14 * k, Y - 30 * k); ctx.lineTo(X + (26 + a * 10) * k, Y - (46 + a * 6) * k); ctx.stroke();
+        ctx.fillStyle = skin; ctx.beginPath(); ctx.arc(X + (26 + a * 10) * k, Y - (46 + a * 6) * k, 5 * k, 0, 7); ctx.fill();
+      } else if (mode === 1) { // встал и тычет пальцем
+        ctx.beginPath(); ctx.moveTo(X + 14 * k, Y - 30 * k); ctx.lineTo(X + 34 * k, Y - 40 * k); ctx.stroke();
+        ctx.fillStyle = skin; ctx.beginPath(); ctx.arc(X + 34 * k, Y - 40 * k, 4 * k, 0, 7); ctx.fill();
+      }
+      // пиджак с лацканами
+      ctx.fillStyle = suit; roundRect(X - 17 * k, Y - 38 * k, 34 * k, 44 * k, 6 * k); ctx.fill();
+      ctx.fillStyle = woman ? "#e8e8e8" : "#f4f4f4";
+      ctx.beginPath(); ctx.moveTo(X - 7 * k, Y - 38 * k); ctx.lineTo(X + 7 * k, Y - 38 * k); ctx.lineTo(X, Y - 20 * k); ctx.closePath(); ctx.fill();
+      if (woman) { ctx.fillStyle = "#f4f0e0"; for (let p = -2; p <= 2; p++) { ctx.beginPath(); ctx.arc(X + p * 3 * k, Y - 36 * k + Math.abs(p) * -1 * k, 1.6 * k, 0, 7); ctx.fill(); } }
+      else { ctx.fillStyle = tie; ctx.fillRect(X - 2.5 * k, Y - 36 * k, 5 * k, 18 * k); }
+      ctx.fillStyle = "#c9a227"; ctx.fillRect(X - 13 * k, Y - 31 * k, 3 * k, 3 * k); // значок на лацкане
+      // голова
+      ctx.fillStyle = skin; ctx.beginPath(); ctx.arc(X, Y - 48 * k, 10 * k, 0, 7); ctx.fill();
+      ctx.fillStyle = hair;
+      if (woman) { ctx.beginPath(); ctx.arc(X, Y - 50 * k, 11.5 * k, Math.PI * 0.95, Math.PI * 2.05); ctx.fill(); ctx.fillRect(X - 11.5 * k, Y - 50 * k, 5 * k, 14 * k); ctx.fillRect(X + 6.5 * k, Y - 50 * k, 5 * k, 14 * k); }
+      else if (s % 5 !== 3) { ctx.beginPath(); ctx.arc(X, Y - 51 * k, 10.5 * k, Math.PI * 1.05, Math.PI * 1.95); ctx.fill(); }
+      if (s % 6 === 2) { ctx.strokeStyle = "#222"; ctx.lineWidth = 1.5 * k; ctx.strokeRect(X - 8 * k, Y - 50 * k, 7 * k, 4 * k); ctx.strokeRect(X + 1 * k, Y - 50 * k, 7 * k, 4 * k); }
+      ctx.fillStyle = "#2a1a10"; ctx.fillRect(X - 5 * k, Y - 49 * k, 2 * k, 2 * k); ctx.fillRect(X + 3 * k, Y - 49 * k, 2 * k, 2 * k);
+      if (mode) { ctx.fillStyle = "#5a1a1a"; ctx.fillRect(X - 3 * k, Y - 43 * k, 6 * k, 3 * k); }
+    };
+    // три полукруглых ряда: дальний, средний, ближний; перед каждым рядом деревянные пюпитры
+    const rows = [{ y: 392, k: 0.85, n: 14 }, { y: 470, k: 1.0, n: 12 }, { y: 556, k: 1.18, n: 10 }];
+    rows.forEach((r, ri) => {
+      ctx.fillStyle = ri % 2 ? "#4a3420" : "#563c24";
+      ctx.fillRect(0, r.y - 6, W, 90);
+      const step = W / r.n;
+      for (let i = 0; i < r.n; i++) {
+        const x = step * (i + 0.5) + (ri % 2) * step * 0.25;
+        if (ri === 0 && x > 500 && x < 780) continue; // перед трибуной спикера пусто
+        const seed = i * 7 + ri * 13;
+        const mode = seed % 5 === 0 ? 2 : seed % 7 === 3 ? 1 : 0;
+        member(x, r.y + 4, r.k, seed, mode);
+        // пюпитр с микрофоном
+        ctx.fillStyle = "#6a4626"; ctx.fillRect(x - 24 * r.k, r.y + 4, 48 * r.k, 22 * r.k);
+        ctx.fillStyle = "#4a2e16"; ctx.fillRect(x - 24 * r.k, r.y + 4, 48 * r.k, 4 * r.k);
+        ctx.strokeStyle = "#222"; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(x + 14 * r.k, r.y + 4); ctx.quadraticCurveTo(x + 18 * r.k, r.y - 10 * r.k, x + 10 * r.k, r.y - 18 * r.k); ctx.stroke();
+        ctx.fillStyle = "#111"; ctx.beginPath(); ctx.arc(x + 10 * r.k, r.y - 18 * r.k, 2.5 * r.k, 0, 7); ctx.fill();
+      }
+    });
+    // летающие бумаги
+    for (let i = 0; i < 9; i++) {
+      const t = (G.time * 0.35 + i * 0.11) % 1;
+      ctx.save(); ctx.translate(90 + i * 135 + Math.sin(G.time + i) * 30, 110 + t * 460); ctx.rotate(G.time * 2 + i);
+      ctx.fillStyle = "#f4f1e8"; ctx.fillRect(-9, -12, 18, 24); ctx.fillStyle = "#bbb"; ctx.fillRect(-6, -7, 12, 2); ctx.fillRect(-6, -2, 12, 2); ctx.restore();
+    }
+    ground("#5a2a22", "#3a1812");
   },
   oval(alt) {
     // изогнутая стена
@@ -1548,8 +1628,8 @@ function drawArenaSelect() {
   bigText("CHOOSE AN ARENA", 70, 40, GOLD);
   const items = ids.map((k) => D.arenas[k].name).concat(["RANDOM"]);
   items.forEach((s, i) => {
-    const col = Math.floor(i / 5), row = i % 5;
-    const x = 140 + col * 520, y = 130 + row * 92, w = 480, h = 72, on = i === G.arenaSel;
+    const col = Math.floor(i / 6), row = i % 6;
+    const x = 140 + col * 520, y = 118 + row * 82, w = 480, h = 68, on = i === G.arenaSel;
     ctx.fillStyle = on ? "rgba(255,213,74,.95)" : "rgba(20,26,60,.85)"; ctx.fillRect(x, y, w, h);
     ctx.strokeStyle = on ? "#fff" : "rgba(255,255,255,.3)"; ctx.lineWidth = 2; ctx.strokeRect(x, y, w, h);
     ctx.font = `24px ${FONT}`; ctx.textAlign = "left"; ctx.fillStyle = on ? INK : WHITE; ctx.fillText(s, x + 20, y + 46);

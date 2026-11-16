@@ -90,6 +90,7 @@ window.GAME_DATA = {
     vegas:     { name: "LAS VEGAS",           tour: 2, theme: "vegas",  home: "reagan",  bg: null },
     nightshow: { name: "LATE NIGHT SHOW",     tour: 3, theme: "tvshow", home: "clinton", bg: null },
     dinner:    { name: "CORRESPONDENTS' DINNER", tour: 3, theme: "ballroom", home: "obama", bg: null },
+    capitol:   { name: "THE HOUSE FLOOR",     tour: 3, theme: "congress", home: null,   bg: null },
     oval:      { name: "THE OVAL OFFICE",     tour: 4, theme: "oval",   home: "rating",  bg: null, bgAlt: null },
   },
 
