@@ -1,0 +1,37 @@
+html, body {
+  margin: 0; height: 100%; background: #05060f; overflow: hidden;
+  touch-action: none; -webkit-user-select: none; user-select: none;
+  -webkit-tap-highlight-color: transparent;
+}
+#wrap { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; }
+#game {
+  width: min(100vw, calc(100vh * 16 / 9));
+  height: auto; aspect-ratio: 16 / 9;
+  image-rendering: pixelated; background: #000;
+}
+
+/* Сенсорное управление: видно только на телефонах и только в бою */
+#touch { display: none; position: fixed; inset: 0; pointer-events: none; z-index: 5; }
+body.touch.fighting #touch { display: block; }
+#stick {
+  position: absolute; left: 3vw; bottom: 4vh; width: 34vmin; height: 34vmin; border-radius: 50%;
+  background: rgba(255,255,255,.08); border: 2px solid rgba(255,255,255,.25); pointer-events: auto;
+}
+#stickKnob {
+  position: absolute; left: 50%; top: 50%; width: 13vmin; height: 13vmin; margin: -6.5vmin 0 0 -6.5vmin;
+  border-radius: 50%; background: rgba(255,255,255,.35);
+}
+#btns {
+  position: absolute; right: 3vw; bottom: 4vh; display: grid; grid-template-columns: repeat(2, 17vmin);
+  gap: 2.5vmin; pointer-events: auto;
+}
+#btns button, #pauseBtn {
+  font: 700 3.2vmin/1 "Arial Black", system-ui, sans-serif; color: #fff;
+  width: 17vmin; height: 17vmin; border-radius: 50%;
+  border: 2px solid rgba(255,255,255,.4); background: rgba(30,40,90,.55);
+}
+#btns button.super { background: rgba(200,40,40,.6); }
+#btns button.on, #pauseBtn.on { background: rgba(255,210,70,.7); color: #000; }
+#pauseBtn {
+  position: absolute; left: 2vw; top: 2vh; width: 9vmin; height: 9vmin; font-size: 3vmin; pointer-events: auto;
+}

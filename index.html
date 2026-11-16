@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
+<title>ПРЕЗИДЕНТСКИЙ НОКАУТ</title>
+<meta name="description" content="Пиксельный пародийный файтинг: президенты США дерутся за пятый срок." />
+<meta name="theme-color" content="#0b0f24" />
+<link rel="stylesheet" href="style.css?v=1" />
+</head>
+<body>
+<div id="wrap">
+  <canvas id="game" width="1280" height="720"></canvas>
+</div>
+
+<div id="touch" aria-hidden="true">
+  <div id="stick"><div id="stickKnob"></div></div>
+  <div id="btns">
+    <button data-act="punch">РУКА</button>
+    <button data-act="kick">НОГА</button>
+    <button data-act="special">СПЕЦ</button>
+    <button data-act="super" class="super">ПАНЧ</button>
+  </div>
+  <button id="pauseBtn" data-act="pause">II</button>
+</div>
+
+<script src="data.js?v=1"></script>
+<script src="sprites.js?v=1"></script>
+<script src="game.js?v=1"></script>
+</body>
+</html>
