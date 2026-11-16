@@ -615,8 +615,13 @@ window.SPRITES = {
   },
   "punch": {
    "src": "assets/sprites/obama/punch.png",
-   "ax": 72,
+   "ax": 73,
    "ay": 281
+  },
+  "hook": {
+   "src": "assets/sprites/obama/hook.png",
+   "ax": 82,
+   "ay": 279
   },
   "counter": {
    "src": "assets/sprites/obama/counter.png",

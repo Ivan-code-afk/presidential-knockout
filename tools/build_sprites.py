@@ -58,7 +58,6 @@ OWN = {
         "sp_deal": ("12", 0, "feet"), "sp_bigleague_0": ("12", 1, "feet"), "sp_bigleague": ("12", 2, "feet"),
     },
     "obama": {
-        "hook": None,  # третья поза листа 3 бьёт назад — ждём исправленный лист
         "sp_ball_0": ("08", 0, "feet"), "sp_ball": ("08", 1, "air"), "special": ("08", 1, "air"), "cool": ("08", 2, "feet"),
         "item_ball": ("09", 0, "item"), "item_mic": ("09", 1, "item"), "fatality": ("09", 2, "feet"),
         "sp_fastbreak": ("12", 0, "feet"), "sp_yeswecan": ("12", 1, "feet"), "super": ("12", 2, "air"),
