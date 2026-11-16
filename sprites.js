@@ -426,6 +426,11 @@ window.SPRITES = {
    "ax": 104,
    "ay": 281
   },
+  "hook": {
+   "src": "assets/sprites/trump/hook.png",
+   "ax": 115,
+   "ay": 280
+  },
   "counter": {
    "src": "assets/sprites/trump/counter.png",
    "ax": 118,

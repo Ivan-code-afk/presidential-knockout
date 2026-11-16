@@ -53,7 +53,6 @@ OWN = {
         "item_sax": ("09", 0, "item"), "fatality": ("09", 1, "feet"), "ending": ("09", 2, "feet"),
     },
     "trump": {
-        "hook": None,  # третья поза листа 3 бьёт назад — ждём исправленный лист
         "sp_fired": ("08", 0, "feet"), "special": ("08", 0, "feet"), "super": ("08", 1, "feet"), "super_2": ("08", 2, "feet"),
         "item_clipper": ("09", 0, "item"), "item_chair": ("09", 1, "item"), "fatality": ("09", 2, "feet"),
         "sp_deal": ("12", 0, "feet"), "sp_bigleague_0": ("12", 1, "feet"), "sp_bigleague": ("12", 2, "feet"),
