@@ -67,6 +67,11 @@ OWN = {
         "item_broccoli": ("09", 0, "item"), "item_parachute": ("09", 1, "item"), "item_light": ("09", 2, "item"),
         "super": ("12", 0, "air"), "super_land": ("12", 1, "feet"), "fatality": ("12", 2, "feet"),
     },
+    "reagan": {
+        "sp_lasso_0": ("08", 0, "feet"), "sp_lasso": ("08", 1, "feet"), "special": ("08", 1, "feet"), "super": ("08", 2, "feet"),
+        "item_wall": ("09", 0, "item"), "item_satellite": ("09", 1, "item"), "fatality": ("09", 2, "feet"),
+        "sp_hat": ("12", 0, "feet"), "sp_beans": ("12", 2, "feet"), "item_hat": ("12", 3, "item"),
+    },
 }
 MAP = {}
 for _fid, _own in OWN.items():
@@ -77,6 +82,7 @@ for _fid, _own in OWN.items():
 # если в листе есть особая фигура для масштаба — можно переопределить для бойца
 REF_OVERRIDE = {"bush": {"00": (0, 1.08)}, "clinton": {"12": (2, 1.02), "10": (0, 0.93), "08": (1, 1.04), "09": (2, 1.06)},
                 "trump": {"10": "=06", "08": (0, 1.02), "09": (2, 1.02), "12": (1, 0.98)},
+                "reagan": {"12": (2, 1.04)},
                 "obama": {"10": "=06", "08": (2, 1.08), "09": (2, 1.08), "12": (1, 1.3)},
                 "bushsr": {"10": (1, 0.8), "08": (2, 1.0), "09": "=06", "12": (2, 1.06)}}
 

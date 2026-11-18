@@ -955,5 +955,167 @@ window.SPRITES = {
    "ax": 58,
    "ay": 298
   }
+ },
+ "reagan": {
+  "idle": {
+   "src": "assets/sprites/reagan/idle.png",
+   "ax": 76,
+   "ay": 281
+  },
+  "crouch": {
+   "src": "assets/sprites/reagan/crouch.png",
+   "ax": 77,
+   "ay": 213
+  },
+  "jump": {
+   "src": "assets/sprites/reagan/jump.png",
+   "ax": 67,
+   "ay": 204
+  },
+  "walk_1": {
+   "src": "assets/sprites/reagan/walk_1.png",
+   "ax": 92,
+   "ay": 281
+  },
+  "walk_2": {
+   "src": "assets/sprites/reagan/walk_2.png",
+   "ax": 59,
+   "ay": 281
+  },
+  "walk_3": {
+   "src": "assets/sprites/reagan/walk_3.png",
+   "ax": 92,
+   "ay": 281
+  },
+  "walk_4": {
+   "src": "assets/sprites/reagan/walk_4.png",
+   "ax": 59,
+   "ay": 281
+  },
+  "punch_0": {
+   "src": "assets/sprites/reagan/punch_0.png",
+   "ax": 74,
+   "ay": 281
+  },
+  "punch": {
+   "src": "assets/sprites/reagan/punch.png",
+   "ax": 75,
+   "ay": 279
+  },
+  "hook": {
+   "src": "assets/sprites/reagan/hook.png",
+   "ax": 74,
+   "ay": 279
+  },
+  "counter": {
+   "src": "assets/sprites/reagan/counter.png",
+   "ax": 94,
+   "ay": 280
+  },
+  "kick": {
+   "src": "assets/sprites/reagan/kick.png",
+   "ax": 66,
+   "ay": 281
+  },
+  "akick": {
+   "src": "assets/sprites/reagan/akick.png",
+   "ax": 118,
+   "ay": 221
+  },
+  "cpunch": {
+   "src": "assets/sprites/reagan/cpunch.png",
+   "ax": 89,
+   "ay": 213
+  },
+  "ckick": {
+   "src": "assets/sprites/reagan/ckick.png",
+   "ax": 89,
+   "ay": 213
+  },
+  "super_0": {
+   "src": "assets/sprites/reagan/super_0.png",
+   "ax": 83,
+   "ay": 275
+  },
+  "block": {
+   "src": "assets/sprites/reagan/block.png",
+   "ax": 83,
+   "ay": 281
+  },
+  "crouch_block": {
+   "src": "assets/sprites/reagan/crouch_block.png",
+   "ax": 86,
+   "ay": 212
+  },
+  "hurt": {
+   "src": "assets/sprites/reagan/hurt.png",
+   "ax": 106,
+   "ay": 281
+  },
+  "fall": {
+   "src": "assets/sprites/reagan/fall.png",
+   "ax": 130,
+   "ay": 188
+  },
+  "ko": {
+   "src": "assets/sprites/reagan/ko.png",
+   "ax": 169,
+   "ay": 89
+  },
+  "getup": {
+   "src": "assets/sprites/reagan/getup.png",
+   "ax": 92,
+   "ay": 210
+  },
+  "throw_0": {
+   "src": "assets/sprites/reagan/throw_0.png",
+   "ax": 94,
+   "ay": 280
+  },
+  "throw": {
+   "src": "assets/sprites/reagan/throw.png",
+   "ax": 105,
+   "ay": 291
+  },
+  "thrown": {
+   "src": "assets/sprites/reagan/thrown.png",
+   "ax": 80,
+   "ay": 309
+  },
+  "sp_lasso_0": {
+   "src": "assets/sprites/reagan/sp_lasso_0.png",
+   "ax": 96,
+   "ay": 333
+  },
+  "sp_lasso": {
+   "src": "assets/sprites/reagan/sp_lasso.png",
+   "ax": 102,
+   "ay": 290
+  },
+  "special": {
+   "src": "assets/sprites/reagan/special.png",
+   "ax": 102,
+   "ay": 290
+  },
+  "super": {
+   "src": "assets/sprites/reagan/super.png",
+   "ax": 86,
+   "ay": 302
+  },
+  "sp_hat": {
+   "src": "assets/sprites/reagan/sp_hat.png",
+   "ax": 72,
+   "ay": 281
+  },
+  "sp_beans": {
+   "src": "assets/sprites/reagan/sp_beans.png",
+   "ax": 70,
+   "ay": 292
+  },
+  "item_hat": {
+   "src": "assets/sprites/reagan/item_hat.png",
+   "ax": 43,
+   "ay": 27
+  }
  }
 };

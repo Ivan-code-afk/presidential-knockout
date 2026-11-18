@@ -1702,6 +1702,15 @@ function updateMenus(dt) {
 /* ------------------------------------------------------------------ */
 /* Рисование: бойцы-заглушки                                          */
 /* ------------------------------------------------------------------ */
+// предмет из листа героя (item_<name>), вписанный в ширину w; false — спрайта нет
+function itemSpr(p, name, w) {
+  const id = p.owner && p.owner.id, im = id && IMG[`spr_${id}_item_${name}`];
+  if (!im) return false;
+  const k = w / im.width;
+  ctx.save(); ctx.imageSmoothingEnabled = true; ctx.drawImage(im, -im.width * k / 2, -im.height * k / 2, im.width * k, im.height * k); ctx.restore();
+  return true;
+}
+
 function poseOf(f) {
   const p = { key: "idle", cr: 0, lean: 0, arms: "guard", legs: "stand", lying: 0, bob: Math.sin(G.time * 4 + f.side) * 2 };
   const a = f.atk;
@@ -1724,7 +1733,7 @@ function poseOf(f) {
       else if (a.kind === "akick") { p.key = "akick"; p.legs = "akick"; p.arms = "block"; }
       else if (a.kind === "throw") { p.key = inStart ? "throw_0" : "throw"; p.arms = inStart ? "cast" : "up"; p.lean = inStart ? 0.2 : -0.2; }
       else if (a.kind === "special") {
-        p.key = "sp_" + a.type;
+        p.key = "sp_" + a.type + (inStart ? "_0" : "");
         if (a.type === "parry") { p.cr = 0.55; p.lean = -0.45; p.arms = "guard"; p.key = "parry"; }
         else if (a.type === "counter") { p.arms = "upper"; p.lean = 0.25; p.key = "counter"; }
         else if (a.type === "ball") p.arms = inStart ? "chest" : "shoot";
@@ -1830,7 +1839,7 @@ function drawFighter(f) {
   const FALLBACK = { hook: "punch", throw_0: "throw", punch_0: "punch", ckick: "kick", crouch_block: "block", fall: "hurt", getup: "crouch", counter: "punch", parry: "block", super_0: "super" };
   let key = null;
   if (set) {
-    const tries = [pose.key, FALLBACK[pose.key], pose.key.startsWith("sp_") ? "special" : null, pose.key.startsWith("walk") ? "idle" : null, "idle"];
+    const tries = [pose.key, FALLBACK[pose.key], pose.key.startsWith("sp_") && pose.key.endsWith("_0") ? pose.key.slice(0, -2) : null, pose.key.startsWith("sp_") ? "special" : null, pose.key.startsWith("walk") ? "idle" : null, "idle"];
     key = tries.find((k) => k && set[k]) || null;
   }
   const img = key && IMG[`spr_${f.id}_${key}`];
@@ -2303,6 +2312,7 @@ function drawProj(p) {
       label("MISSION ACCOMPLISHED", 30, 8, 17, "#111");
       break;
     case "wall":
+      if (itemSpr(p, "wall", 190)) break;
       for (let r = 0; r < 6; r++) for (let c = 0; c < 3; c++) { ctx.fillStyle = (r + c) % 2 ? "#8a8a8a" : "#9e9e9e"; ctx.fillRect(-85 + c * 57 + (r % 2) * 10, -150 + r * 50, 54, 47); }
       break;
     case "wave":
@@ -2313,6 +2323,7 @@ function drawProj(p) {
       break;
     case "hat":
       ctx.rotate(p.t * 14);
+      if (itemSpr(p, "hat", 80)) break;
       ctx.fillStyle = "#e8d9b0"; ctx.beginPath(); ctx.ellipse(0, 6, 32, 8, 0, 0, Math.PI * 2); ctx.fill();
       ctx.fillRect(-16, -14, 32, 20); ctx.fillStyle = "#7a5a3a"; ctx.fillRect(-16, 0, 32, 4);
       break;
