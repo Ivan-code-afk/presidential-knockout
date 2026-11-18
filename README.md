@@ -50,6 +50,7 @@
 | Trump | Тяжёлый борец | You're Fired! | The Deal (захват) | Big League (броня) | Heavyweight: мало отбрасывает, броски сильнее |
 | Reagan | Контроль | Lasso | Hat Toss | Jelly Beans | There You Go Again: наказывает повторы |
 | Obama | Мобильность | Three-Pointer | Fast Break | Yes We Can | Двойной прыжок |
+| Bush Sr | Ветеран-дипломат | Points of Light (три огонька на разной высоте) | Broccoli Toss (брокколи по дуге) | Read My Lips (вблизи крадёт 30 шкалы SUPER: «No new taxes!») | Kinder, Gentler: −15% урона от снарядов. Супер Parachute Drop — прыжок с парашютом прямо на соперника |
 | Uncle Swamp (босс) | Бюрократ | Red Tape (замедляет) | Subpoena (снаряд) | Shadow Cabinet (телепорт за спину) | Too Big to Fail: в финале один раз встаёт с 25% здоровья. Супер Government Shutdown гасит свет и сыплет деньги |
 
 **Общие механики:** бросок вплотную (вперёд/назад + PUNCH) пробивает блок, вырваться — нажать PUNCH; удар можно отменить в спецприём после попадания или блока; подброшенного соперника можно ударить ещё дважды в воздухе; броня выдерживает один удар.

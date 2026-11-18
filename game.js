@@ -280,6 +280,7 @@ const SP_TIME = {
   teleport: { start: 0.32, act: 0.14, rec: 0.3 },  tv: { start: 0.16, act: 0.1, rec: 0.3 },
   spike: { start: 0.08, act: 0.22, rec: 0.35 },
   tape: { start: 0.18, act: 0.1, rec: 0.32 }, subpoena: { start: 0.16, act: 0.1, rec: 0.3 },
+  lights: { start: 0.2, act: 0.1, rec: 0.32 }, broccoli: { start: 0.18, act: 0.1, rec: 0.34 }, lips: { start: 0.25, act: 0.1, rec: 0.35 },
 };
 const SLOTS = ["n", "f", "d"];
 
@@ -323,7 +324,7 @@ function resetFighter(f) {
     hp: f.maxHp, shownHp: f.maxHp, st: "idle", stT: 0, atk: null, stun: 0, cds: { n: 0, f: 0, d: 0 }, combo: 0, comboT: 0,
     inv: 0, reflectT: 0, flash: 0, walkPh: 0, airAtk: false, crouchBlock: false, crouchHurt: false, alpha: 1,
     armor: 0, buffT: 0, deciderT: 0, juggle: 0, jumps: 0, recent: [], tyga: false, lastPunchT: -9, ghost: false,
-    vpUsed: false, slowT: 0,
+    vpUsed: false, slowT: 0, hidden: false, chute: null,
   });
   f.ai = { t: 0.4, hold: {} };
 }
@@ -487,6 +488,10 @@ function updateFighter(f, o, dt) {
   if (f.ctl.p.punch) f.lastPunchT = G.time;
   f.shownHp += (f.hp - f.shownHp) * Math.min(1, dt * 3);
   if (f.slowT > 0) f.slowT -= dt;
+  if (f.chute && (f.chute.dead || !F.proj.includes(f.chute))) {
+    f.x = clamp(f.chute.x, WALL_L, WALL_R); f.y = FLOOR; f.vy = 0; f.onGround = true;
+    f.hidden = false; f.chute = null; f.inv = 0.3; spark(f.x, f.y - 60, "gold");
+  }
   if (f.alpha < 1 && !(f.st === "atk" && f.atk && f.atk.type === "teleport")) f.alpha = Math.min(1, f.alpha + dt * 4);
 
   const free = f.st === "idle" || f.st === "walk" || f.st === "crouch";
@@ -629,6 +634,7 @@ function hit(att, def, h) {
   }
   let dmg = h.dmg * powerOf(att) * Math.max(0.5, 1 - att.combo * 0.1);
   if (F.debate && h.normal) dmg *= 0.3;
+  if (def.id === "bushsr" && h.owner) dmg *= 0.85; // KINDER, GENTLER
   if (att.tyga) { dmg *= 1.6; att.tyga = false; popText("THERE YOU GO AGAIN!", att.x, att.y - 300, GOLD, 1.0, 26); }
   // броня: выдерживает удар без остановки
   if (def.armor > 0 && !h.throw) {
@@ -770,6 +776,19 @@ function fireSpecial(f, o, type) {
       break;
     case "tv": addProj(f, { kind: "tv", x, y: f.y - 150, vx: f.face * 600, w: 70, h: 60, dmg: 10, hgt: "mid", stun: 0.4, push: 220, life: 2.4 }); break;
     case "subpoena": addProj(f, { kind: "subpoena", x, y: f.y - 160, vx: f.face * 640, w: 64, h: 44, dmg: 10, hgt: "mid", stun: 0.4, push: 220, life: 2.4 }); break;
+    case "lights":
+      [-60, 0, 60].forEach((dy, i) => addProj(f, { kind: "light", x, y: f.y - 150 + dy, vx: f.face * (560 + i * 40), w: 40, h: 40, dmg: 6, hgt: dy > 0 ? "mid" : "high", stun: 0.25, push: 90, life: 2.2, meter: 3 }));
+      break;
+    case "broccoli": addProj(f, { kind: "broccoli", x, y: f.y - 200, vx: f.face * 520, vy: -700, g: 1900, w: 46, h: 46, dmg: 11, hgt: "over", stun: 0.6, push: 160, life: 3 }); break;
+    case "lips":
+      popText("READ MY LIPS!", f.x, f.y - 330, GOLD, 1.0, 28);
+      if (Math.abs(o.x - f.x) < 360) {
+        const take = Math.min(o.meter, 30);
+        o.meter -= take; f.meter = Math.min(100, f.meter + 20);
+        popText("NO NEW TAXES!", o.x, o.y - 300, "#ff9a9a", 1.0, 24);
+        spark(o.x, o.y - 160, "gold");
+      }
+      break;
     case "tape": addProj(f, { kind: "tape", x, y: f.y - 130, vx: f.face * 820, w: 80, h: 70, dmg: 6, hgt: "mid", stun: 0.35, push: 80, life: 0.7, slow: 1.8 }); break;
     case "decider": f.deciderT = 2.2; popText("I'M THE DECIDER!", f.x, f.y - 330, GOLD, 1.2, 26); break;
     case "yeswecan": f.buffT = 5; popText("YES WE CAN!", f.x, f.y - 330, "#9fe8ff", 1.2, 30); spark(f.x, f.y - 150, "tv"); break;
@@ -799,6 +818,12 @@ function updateSuper(f, o, dt) {
         for (let i = 0; i < 5; i++) addProj(f, { kind: "arrow", x: clamp(o.x + rnd(-170, 170), 60, W - 60), y: -80 - i * 230, vy: 1300, w: 44, h: 96, dmg: 8, hgt: "over", life: 2.6, fall: true, meter: 0 });
         break;
       case "dash": a.dash = true; break;
+      case "parachute": {
+        f.hidden = true; f.inv = 2.2;
+        f.chute = addProj(f, { kind: "chute", x: o.x, y: -220, vy: 620, w: 120, h: 120, dmg: 22, hgt: "over", knock: true, life: 2.0, fall: true, meter: 0 });
+        spark(f.x, f.y - 150, "gold");
+        break;
+      }
       case "shutdown":
         F.darkT = 2.8; F.flashScreen = 0.3;
         for (let i = 0; i < 6; i++) addProj(f, { kind: "cash", x: clamp(o.x + rnd(-180, 180), 60, W - 60), y: -80 - i * 200, vy: 1250, w: 60, h: 40, dmg: 7, hgt: "over", life: 2.6, fall: true, meter: 0 });
@@ -821,7 +846,7 @@ function updateSuper(f, o, dt) {
 /* ------------------------------------------------------------------ */
 /* Снаряды и частицы                                                  */
 /* ------------------------------------------------------------------ */
-function addProj(owner, p) { p.owner = owner; p.t = 0; p.vy = p.vy || 0; p.vx = p.vx || 0; F.proj.push(p); }
+function addProj(owner, p) { p.owner = owner; p.t = 0; p.vy = p.vy || 0; p.vx = p.vx || 0; F.proj.push(p); return p; }
 function fighterBox(f) {
   const h = (f.st === "down" || f.st === "ko") ? 70 : isCrouching(f) ? 135 : 230;
   return { x: f.x - 38, y: f.y - h, w: 76, h };
@@ -841,6 +866,7 @@ function updateProj(dt) {
       if (p.bounces > 0) { p.bounces--; p.y = FLOOR - p.h / 2; p.vy = -Math.abs(p.vy) * 0.55; SFX.land(); }
       else { p.dead = true; spark(p.x, FLOOR - 20, "dust"); }
     }
+    if (p.kind === "chute") { const t = other(p.owner); p.x += clamp(t.x - p.x, -1, 1) * Math.min(Math.abs(t.x - p.x), 220 * dt); }
     if (p.fall && p.y > FLOOR - p.h / 2) { p.dead = true; spawnDust(p.x); F.shake = Math.max(F.shake, 9); SFX.heavy(); }
     if (p.dead) continue;
     const def = other(p.owner);
@@ -901,6 +927,9 @@ const AI_USE = {
   spike: (d, o) => (!o.onGround && d < 220 ? 0.7 : 0),
   tape: (d, o) => (d > 180 && !(o.slowT > 0) ? 0.45 : 0),
   subpoena: (d) => (d > 260 ? 0.4 : 0),
+  lights: (d) => (d > 240 ? 0.42 : 0),
+  broccoli: (d) => (d > 260 && d < 640 ? 0.32 : 0),
+  lips: (d, o) => (d < 340 && o.meter > 35 ? 0.5 : 0),
 };
 const COMBO_TYPES = ["brush", "fired", "bigleague", "fastbreak", "notes", "ball", "lasso", "tv", "deal", "subpoena", "tape"];
 function aiUpdate(f, o, dt) {
@@ -1511,6 +1540,7 @@ function finishDaily() {
 }
 
 function rosterVisible() { return D.roster; }
+function selCols(n) { return n <= 6 ? 3 : Math.ceil(n / 2); }
 function vpCandidates(side) { return D.roster.filter((id) => id !== G.sel.picks[side] && !locked(id)); }
 function locked(id) { return D.fighters[id].boss && !G.bossUnlocked; }
 
@@ -1547,7 +1577,7 @@ function updateMenus(dt) {
       }
       if (n.left) { s.cur = (s.cur + R.length - 1) % R.length; SFX.menu(); }
       if (n.right) { s.cur = (s.cur + 1) % R.length; SFX.menu(); }
-      if (n.up || n.down) { s.cur = (s.cur + 3) % R.length; SFX.menu(); }
+      if (n.up || n.down) { s.cur = (s.cur + selCols(R.length)) % R.length; SFX.menu(); }
       let choose = null;
       if (n.click !== null && n.click >= 0) { s.cur = n.click; choose = n.click; }
       else if (n.ok) choose = s.cur;
@@ -1710,6 +1740,9 @@ function poseOf(f) {
         else if (a.type === "fastbreak") { p.cr = 0.6; p.legs = "walk"; p.lean = 0.45; p.arms = "side"; }
         else if (a.type === "spike") p.arms = "upper";
         else if (a.type === "tape" || a.type === "subpoena") p.arms = inStart ? "wind" : "point";
+        else if (a.type === "lights") p.arms = "up";
+        else if (a.type === "broccoli") p.arms = inStart ? "wind" : "point";
+        else if (a.type === "lips") p.arms = "guard";
         else p.arms = "cast";
       } else if (a.kind === "super") {
         p.key = "super";
@@ -1783,6 +1816,7 @@ function drawBonusItems() {
 
 function drawFighter(f) {
   if (f.d.obj) { drawObj(f); return; }
+  if (f.hidden) return;
   const shadowK = clamp(1 - (FLOOR - f.y) / 500, 0.3, 1);
   ctx.fillStyle = "rgba(0,0,0,.35)";
   ctx.beginPath(); ctx.ellipse(f.x, FLOOR + 3, 58 * shadowK, 11 * shadowK, 0, 0, Math.PI * 2); ctx.fill();
@@ -2306,6 +2340,27 @@ function drawProj(p) {
       ctx.stroke(); ctx.lineCap = "butt";
       break;
     }
+    case "light": {
+      const r = 14 + Math.sin(p.t * 20) * 3;
+      ctx.fillStyle = "rgba(255,240,170,.35)"; ctx.beginPath(); ctx.arc(0, 0, r * 1.8, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = "#fffbe0"; ctx.beginPath();
+      for (let i = 0; i < 8; i++) { const a = i * Math.PI / 4, rr = i % 2 ? r * 0.35 : r; ctx.lineTo(Math.cos(a) * rr, Math.sin(a) * rr); }
+      ctx.closePath(); ctx.fill();
+      break;
+    }
+    case "broccoli":
+      ctx.rotate(p.t * 8);
+      if (IMG[`spr_${p.owner.id}_item_broccoli`]) { const im = IMG[`spr_${p.owner.id}_item_broccoli`]; ctx.scale(0.45, 0.45); ctx.imageSmoothingEnabled = true; ctx.drawImage(im, -im.width / 2, -im.height / 2); }
+      else { ctx.fillStyle = "#3f7d2a"; ctx.beginPath(); ctx.arc(0, -8, 18, 0, Math.PI * 2); ctx.fill(); ctx.fillStyle = "#9bcf5a"; ctx.fillRect(-5, 0, 10, 22); }
+      break;
+    case "chute":
+      ctx.translate(0, 110);
+      if (!drawSpriteOf(p.owner.id, "super")) {
+        ctx.fillStyle = "#d42a2a"; ctx.beginPath(); ctx.arc(0, -220, 90, Math.PI, 0); ctx.fill();
+        ctx.strokeStyle = "#ddd"; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(-90, -220); ctx.lineTo(0, -120); ctx.lineTo(90, -220); ctx.stroke();
+        ctx.save(); ctx.scale(0.8, 0.8); drawDummy(p.owner.d, { cr: 0, lean: 0, arms: "up", legs: "stand", lying: 0, bob: 0 }, false, 0); ctx.restore();
+      }
+      break;
     case "cash":
       ctx.rotate(Math.sin(p.t * 9) * 0.4);
       ctx.fillStyle = "#7bc96f"; ctx.fillRect(-28, -16, 56, 32); ctx.strokeStyle = "#2e7d32"; ctx.lineWidth = 3; ctx.strokeRect(-28, -16, 56, 32);
@@ -2630,15 +2685,16 @@ function drawSelect() {
   const R = rosterVisible(), s = G.sel;
   const who = G.mode === "arcade" ? "CHOOSE YOUR FIGHTER" : s.step === 0 ? (G.mode === "vs" ? "PLAYER 1: CHOOSE" : "CHOOSE YOUR FIGHTER") : (G.mode === "vs" ? "PLAYER 2: CHOOSE" : G.mode === "training" ? "CHOOSE THE DUMMY" : "CHOOSE YOUR OPPONENT");
   bigText(who, 70, 40, s.step === 0 ? GOLD : "#ff7a7a");
-  // сетка 3×2
+  // сетка: 3 столбца на 6 бойцов, 4 — на 7–8, дальше шире
+  const cols = selCols(R.length), cw = Math.floor((570 - (cols - 1) * 12) / cols);
   R.forEach((id, i) => {
-    const col = i % 3, row = Math.floor(i / 3);
-    const x = 70 + col * 190, y = 120 + row * 250, w = 170, h = 230;
+    const col = i % cols, row = Math.floor(i / cols);
+    const x = 70 + col * (cw + 12), y = 120 + row * 250, w = cw, h = 230;
     const lk = locked(id), on = i === s.cur;
     ctx.fillStyle = on ? "rgba(255,213,74,.25)" : "rgba(20,26,60,.85)"; ctx.fillRect(x, y, w, h);
     ctx.save(); ctx.beginPath(); ctx.rect(x, y, w, h); ctx.clip();
     if (lk) { ctx.fillStyle = "#111"; ctx.fillRect(x, y, w, h); label("?", x + w / 2, y + 140, 100, "#444"); }
-    else drawPortrait(id, x + 10, y + 10, 150, false);
+    else drawPortrait(id, x + (w - Math.min(150, w - 10)) / 2, y + 10, Math.min(150, w - 10), false);
     ctx.restore();
     ctx.strokeStyle = on ? (s.step === 0 ? GOLD : "#ff7a7a") : "rgba(255,255,255,.3)"; ctx.lineWidth = on ? 5 : 2; ctx.strokeRect(x, y, w, h);
     ctx.fillStyle = "rgba(0,0,0,.7)"; ctx.fillRect(x, y + h - 38, w, 38);

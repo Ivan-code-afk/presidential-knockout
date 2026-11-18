@@ -763,5 +763,192 @@ window.SPRITES = {
    "ax": 88,
    "ay": 318
   }
+ },
+ "bushsr": {
+  "idle": {
+   "src": "assets/sprites/bushsr/idle.png",
+   "ax": 64,
+   "ay": 282
+  },
+  "crouch": {
+   "src": "assets/sprites/bushsr/crouch.png",
+   "ax": 54,
+   "ay": 189
+  },
+  "jump": {
+   "src": "assets/sprites/bushsr/jump.png",
+   "ax": 54,
+   "ay": 188
+  },
+  "walk_1": {
+   "src": "assets/sprites/bushsr/walk_1.png",
+   "ax": 84,
+   "ay": 281
+  },
+  "walk_2": {
+   "src": "assets/sprites/bushsr/walk_2.png",
+   "ax": 48,
+   "ay": 281
+  },
+  "walk_3": {
+   "src": "assets/sprites/bushsr/walk_3.png",
+   "ax": 88,
+   "ay": 281
+  },
+  "walk_4": {
+   "src": "assets/sprites/bushsr/walk_4.png",
+   "ax": 46,
+   "ay": 281
+  },
+  "punch_0": {
+   "src": "assets/sprites/bushsr/punch_0.png",
+   "ax": 88,
+   "ay": 281
+  },
+  "punch": {
+   "src": "assets/sprites/bushsr/punch.png",
+   "ax": 88,
+   "ay": 281
+  },
+  "counter": {
+   "src": "assets/sprites/bushsr/counter.png",
+   "ax": 108,
+   "ay": 279
+  },
+  "kick": {
+   "src": "assets/sprites/bushsr/kick.png",
+   "ax": 51,
+   "ay": 281
+  },
+  "akick": {
+   "src": "assets/sprites/bushsr/akick.png",
+   "ax": 122,
+   "ay": 207
+  },
+  "cpunch": {
+   "src": "assets/sprites/bushsr/cpunch.png",
+   "ax": 73,
+   "ay": 225
+  },
+  "ckick": {
+   "src": "assets/sprites/bushsr/ckick.png",
+   "ax": 73,
+   "ay": 225
+  },
+  "super_0": {
+   "src": "assets/sprites/bushsr/super_0.png",
+   "ax": 112,
+   "ay": 313
+  },
+  "block": {
+   "src": "assets/sprites/bushsr/block.png",
+   "ax": 90,
+   "ay": 281
+  },
+  "crouch_block": {
+   "src": "assets/sprites/bushsr/crouch_block.png",
+   "ax": 78,
+   "ay": 229
+  },
+  "hurt": {
+   "src": "assets/sprites/bushsr/hurt.png",
+   "ax": 110,
+   "ay": 281
+  },
+  "fall": {
+   "src": "assets/sprites/bushsr/fall.png",
+   "ax": 141,
+   "ay": 219
+  },
+  "ko": {
+   "src": "assets/sprites/bushsr/ko.png",
+   "ax": 166,
+   "ay": 83
+  },
+  "getup": {
+   "src": "assets/sprites/bushsr/getup.png",
+   "ax": 90,
+   "ay": 223
+  },
+  "win": {
+   "src": "assets/sprites/bushsr/win.png",
+   "ax": 96,
+   "ay": 304
+  },
+  "lose": {
+   "src": "assets/sprites/bushsr/lose.png",
+   "ax": 69,
+   "ay": 225
+  },
+  "portrait": {
+   "src": "assets/sprites/bushsr/portrait.png",
+   "ax": 0,
+   "ay": 0
+  },
+  "throw_0": {
+   "src": "assets/sprites/bushsr/throw_0.png",
+   "ax": 106,
+   "ay": 290
+  },
+  "throw": {
+   "src": "assets/sprites/bushsr/throw.png",
+   "ax": 117,
+   "ay": 313
+  },
+  "thrown": {
+   "src": "assets/sprites/bushsr/thrown.png",
+   "ax": 58,
+   "ay": 309
+  },
+  "sp_lips": {
+   "src": "assets/sprites/bushsr/sp_lips.png",
+   "ax": 70,
+   "ay": 257
+  },
+  "sp_lights": {
+   "src": "assets/sprites/bushsr/sp_lights.png",
+   "ax": 121,
+   "ay": 286
+  },
+  "special": {
+   "src": "assets/sprites/bushsr/special.png",
+   "ax": 121,
+   "ay": 286
+  },
+  "sp_broccoli": {
+   "src": "assets/sprites/bushsr/sp_broccoli.png",
+   "ax": 104,
+   "ay": 281
+  },
+  "item_broccoli": {
+   "src": "assets/sprites/bushsr/item_broccoli.png",
+   "ax": 90,
+   "ay": 91
+  },
+  "item_parachute": {
+   "src": "assets/sprites/bushsr/item_parachute.png",
+   "ax": 130,
+   "ay": 128
+  },
+  "item_light": {
+   "src": "assets/sprites/bushsr/item_light.png",
+   "ax": 52,
+   "ay": 53
+  },
+  "super": {
+   "src": "assets/sprites/bushsr/super.png",
+   "ax": 128,
+   "ay": 290
+  },
+  "super_land": {
+   "src": "assets/sprites/bushsr/super_land.png",
+   "ax": 128,
+   "ay": 231
+  },
+  "fatality": {
+   "src": "assets/sprites/bushsr/fatality.png",
+   "ax": 58,
+   "ay": 298
+  }
  }
 };

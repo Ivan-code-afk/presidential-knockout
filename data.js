@@ -99,6 +99,23 @@ window.GAME_DATA = {
       fatality: "Mic drop: the microphone falls on the opponent from skyscraper height.",
       ending: "Beats every defeated president at basketball, then signs off: \"Obama out.\"",
     },
+    bushsr: {
+      name: "BUSH SR", full: "George H. W. Bush",
+      speed: 1.0, power: 1.0, health: 1.06,
+      specials: {
+        n: { name: "POINTS OF LIGHT", type: "lights", cd: 2.8, desc: "Three points of light fly forward at different heights" },
+        f: { name: "BROCCOLI TOSS", type: "broccoli", cd: 3.2, desc: "Lobs a broccoli. Nobody likes broccoli" },
+        d: { name: "READ MY LIPS", type: "lips", cd: 6, desc: "Up close: steals a chunk of the opponent's SUPER meter. No new taxes!" },
+      },
+      passive: { name: "KINDER, GENTLER", desc: "Takes 15% less damage from projectiles" },
+      superMove: { name: "PARACHUTE DROP", type: "parachute" },
+      colors: { shirt: "#24305e", pants: "#24305e", skin: "#e8b48f", hair: "#7a6a5a", accent: "#c8102e", shoes: "#151515" },
+      look: {},
+      win: "Read my lips: you lost.",
+      lines: { intro: ["Read my lips: you lose.", "Kinder, gentler... not today."], super: "A thousand points of light!", win: ["No broccoli. Ever.", "Mission accomplished? That's my son's line."] },
+      fatality: "The opponent is buried under a mountain of broccoli.",
+      ending: "Bush Sr skydives onto the White House lawn and declares a thousand-point victory.",
+    },
     swamp: {
       name: "UNCLE SWAMP", full: "Uncle Swamp", boss: true,
       speed: 1.0, power: 1.05, health: 1.1,
@@ -120,7 +137,7 @@ window.GAME_DATA = {
   },
 
   // Порядок на экране выбора. Босс открывается после прохождения аркады.
-  roster: ["bush", "clinton", "trump", "reagan", "obama", "swamp"],
+  roster: ["bush", "clinton", "trump", "reagan", "obama", "bushsr", "swamp"],
 
   // bg — путь к фону арены (assets/arenas/*.webp). Пока null: рисуется фон-заглушка.
   arenas: {
