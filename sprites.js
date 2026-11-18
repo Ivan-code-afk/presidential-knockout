@@ -810,6 +810,11 @@ window.SPRITES = {
    "ax": 88,
    "ay": 281
   },
+  "hook": {
+   "src": "assets/sprites/bushsr/hook.png",
+   "ax": 94,
+   "ay": 281
+  },
   "counter": {
    "src": "assets/sprites/bushsr/counter.png",
    "ax": 108,

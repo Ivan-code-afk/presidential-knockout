@@ -63,7 +63,6 @@ OWN = {
         "sp_fastbreak": ("12", 0, "feet"), "sp_yeswecan": ("12", 1, "feet"), "super": ("12", 2, "air"),
     },
     "bushsr": {
-        "hook": None,  # третья поза листа 3 бьёт назад — ждём исправленный лист
         "sp_lips": ("08", 0, "feet"), "sp_lights": ("08", 1, "feet"), "special": ("08", 1, "feet"), "sp_broccoli": ("08", 2, "feet"),
         "item_broccoli": ("09", 0, "item"), "item_parachute": ("09", 1, "item"), "item_light": ("09", 2, "item"),
         "super": ("12", 0, "air"), "super_land": ("12", 1, "feet"), "fatality": ("12", 2, "feet"),
