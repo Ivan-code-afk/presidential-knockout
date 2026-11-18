@@ -1723,7 +1723,7 @@ function poseOf(f) {
     case "down": p.key = f.onGround ? "ko" : "fall"; p.lying = f.onGround ? 1 : clamp(f.stT / 0.3, 0, 1); p.arms = "flail"; break;
     case "ko": p.key = "ko"; p.lying = 1; p.arms = "down"; break;
     case "getup": p.key = "getup"; p.cr = 0.7; p.arms = "down"; break;
-    case "win": p.key = "win"; p.arms = "up"; break;
+    case "win": p.key = F && F.phase === "fatality" ? "fatality" : "win"; p.arms = "up"; break;
     case "lose": p.key = "lose"; p.cr = 0.75; p.arms = "down"; p.lean = 0.35; break;
     case "atk": {
       const inStart = a.t < a.m.start;
@@ -1836,7 +1836,7 @@ function drawFighter(f) {
   ctx.globalAlpha = f.ghost ? 0.55 : f.alpha;
   ctx.scale(f.face, 1);
   const set = SPR[f.id];
-  const FALLBACK = { hook: "punch", throw_0: "throw", punch_0: "punch", ckick: "kick", crouch_block: "block", fall: "hurt", getup: "crouch", counter: "punch", parry: "block", super_0: "super" };
+  const FALLBACK = { hook: "punch", throw_0: "throw", punch_0: "punch", ckick: "kick", crouch_block: "block", fall: "hurt", getup: "crouch", counter: "punch", parry: "block", super_0: "super", fatality: "win" };
   let key = null;
   if (set) {
     const tries = [pose.key, FALLBACK[pose.key], pose.key.startsWith("sp_") && pose.key.endsWith("_0") ? pose.key.slice(0, -2) : null, pose.key.startsWith("sp_") ? "special" : null, pose.key.startsWith("walk") ? "idle" : null, "idle"];
@@ -2569,9 +2569,28 @@ function drawFatality() {
   drawDummyOrSprite(l, { cr: 0, lean: -0.2, arms: "flail", legs: "stand", lying: 0, bob: Math.sin(t * 20) * 4, key: "hurt" });
   ctx.restore();
   if (t > 1.4 && t < 2.6) for (let i = 0; i < 3; i++) spark(l.x + rnd(-40, 40), l.y - rnd(40, 220), w.id === "swamp" ? "cash" : "gold");
+  if (w.id === "reagan") reaganSat(l, t);
   bigText(D.texts.fatality, 230, 90, RED);
   ctx.font = `26px ${FONT}`; ctx.textAlign = "center"; ctx.fillStyle = WHITE;
   wrapText(w.d.fatality, W / 2, 300, 900, 34);
+}
+// фаталити Рейгана: спутник «Звёздных войн», луч, горка мармеладных бобов
+const BEAN_COLORS = ["#ff4d4d", "#ffb02e", "#ffe14d", "#5fd35f", "#4da6ff", "#c86bff", "#ff8fc7", "#fff"];
+function reaganSat(l, t) {
+  const im = IMG[`spr_reagan_item_satellite`], y = 40 + Math.min(1, t / 0.9) * 90;
+  if (t > 1.0 && t < 2.5) {
+    ctx.save(); ctx.globalAlpha = 0.6 + Math.sin(t * 60) * 0.3;
+    ctx.fillStyle = "#ff3b3b"; ctx.fillRect(l.x - 9, y + 40, 18, l.y - y - 40);
+    ctx.fillStyle = "#fff"; ctx.fillRect(l.x - 3, y + 40, 6, l.y - y - 40); ctx.restore();
+  }
+  if (im) { ctx.save(); ctx.imageSmoothingEnabled = true; const k = 200 / im.width; ctx.drawImage(im, l.x - 100, y - im.height * k / 2, 200, im.height * k); ctx.restore(); }
+  if (t > 2.0) {
+    const n = Math.min(40, Math.floor((t - 2.0) * 60));
+    for (let i = 0; i < n; i++) {
+      const row = Math.floor(Math.sqrt(i)), x = l.x + ((i * 37) % 9 - 4) * 11 * (1 - row / 8), yy = l.y - 8 - row * 11;
+      ctx.fillStyle = BEAN_COLORS[i % BEAN_COLORS.length]; ctx.beginPath(); ctx.ellipse(x, yy, 9, 6, (i % 5) * 0.6, 0, Math.PI * 2); ctx.fill();
+    }
+  }
 }
 function drawDummyOrSprite(f, pose) {
   const set = SPR[f.id], img = set && set.hurt && IMG[`spr_${f.id}_hurt`];

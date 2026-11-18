@@ -1067,6 +1067,21 @@ window.SPRITES = {
    "ax": 92,
    "ay": 210
   },
+  "win": {
+   "src": "assets/sprites/reagan/win.png",
+   "ax": 63,
+   "ay": 309
+  },
+  "lose": {
+   "src": "assets/sprites/reagan/lose.png",
+   "ax": 68,
+   "ay": 216
+  },
+  "portrait": {
+   "src": "assets/sprites/reagan/portrait.png",
+   "ax": 0,
+   "ay": 0
+  },
   "throw_0": {
    "src": "assets/sprites/reagan/throw_0.png",
    "ax": 94,
@@ -1101,6 +1116,21 @@ window.SPRITES = {
    "src": "assets/sprites/reagan/super.png",
    "ax": 86,
    "ay": 302
+  },
+  "item_wall": {
+   "src": "assets/sprites/reagan/item_wall.png",
+   "ax": 95,
+   "ay": 145
+  },
+  "item_satellite": {
+   "src": "assets/sprites/reagan/item_satellite.png",
+   "ax": 109,
+   "ay": 67
+  },
+  "fatality": {
+   "src": "assets/sprites/reagan/fatality.png",
+   "ax": 89,
+   "ay": 309
   },
   "sp_hat": {
    "src": "assets/sprites/reagan/sp_hat.png",
