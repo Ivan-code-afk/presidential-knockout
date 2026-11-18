@@ -1147,5 +1147,197 @@ window.SPRITES = {
    "ax": 43,
    "ay": 27
   }
+ },
+ "nixon": {
+  "idle": {
+   "src": "assets/sprites/nixon/idle.png",
+   "ax": 86,
+   "ay": 281
+  },
+  "crouch": {
+   "src": "assets/sprites/nixon/crouch.png",
+   "ax": 82,
+   "ay": 215
+  },
+  "jump": {
+   "src": "assets/sprites/nixon/jump.png",
+   "ax": 83,
+   "ay": 226
+  },
+  "walk_1": {
+   "src": "assets/sprites/nixon/walk_1.png",
+   "ax": 96,
+   "ay": 281
+  },
+  "walk_2": {
+   "src": "assets/sprites/nixon/walk_2.png",
+   "ax": 66,
+   "ay": 283
+  },
+  "walk_3": {
+   "src": "assets/sprites/nixon/walk_3.png",
+   "ax": 99,
+   "ay": 281
+  },
+  "walk_4": {
+   "src": "assets/sprites/nixon/walk_4.png",
+   "ax": 73,
+   "ay": 282
+  },
+  "punch_0": {
+   "src": "assets/sprites/nixon/punch_0.png",
+   "ax": 84,
+   "ay": 281
+  },
+  "punch": {
+   "src": "assets/sprites/nixon/punch.png",
+   "ax": 84,
+   "ay": 281
+  },
+  "hook": {
+   "src": "assets/sprites/nixon/hook.png",
+   "ax": 86,
+   "ay": 281
+  },
+  "counter": {
+   "src": "assets/sprites/nixon/counter.png",
+   "ax": 108,
+   "ay": 285
+  },
+  "kick": {
+   "src": "assets/sprites/nixon/kick.png",
+   "ax": 53,
+   "ay": 281
+  },
+  "akick": {
+   "src": "assets/sprites/nixon/akick.png",
+   "ax": 126,
+   "ay": 228
+  },
+  "cpunch": {
+   "src": "assets/sprites/nixon/cpunch.png",
+   "ax": 83,
+   "ay": 223
+  },
+  "ckick": {
+   "src": "assets/sprites/nixon/ckick.png",
+   "ax": 83,
+   "ay": 223
+  },
+  "super_0": {
+   "src": "assets/sprites/nixon/super_0.png",
+   "ax": 107,
+   "ay": 292
+  },
+  "block": {
+   "src": "assets/sprites/nixon/block.png",
+   "ax": 96,
+   "ay": 281
+  },
+  "crouch_block": {
+   "src": "assets/sprites/nixon/crouch_block.png",
+   "ax": 84,
+   "ay": 219
+  },
+  "hurt": {
+   "src": "assets/sprites/nixon/hurt.png",
+   "ax": 135,
+   "ay": 266
+  },
+  "fall": {
+   "src": "assets/sprites/nixon/fall.png",
+   "ax": 129,
+   "ay": 192
+  },
+  "ko": {
+   "src": "assets/sprites/nixon/ko.png",
+   "ax": 150,
+   "ay": 99
+  },
+  "getup": {
+   "src": "assets/sprites/nixon/getup.png",
+   "ax": 93,
+   "ay": 202
+  },
+  "win": {
+   "src": "assets/sprites/nixon/win.png",
+   "ax": 112,
+   "ay": 298
+  },
+  "lose": {
+   "src": "assets/sprites/nixon/lose.png",
+   "ax": 88,
+   "ay": 240
+  },
+  "portrait": {
+   "src": "assets/sprites/nixon/portrait.png",
+   "ax": 0,
+   "ay": 0
+  },
+  "throw_0": {
+   "src": "assets/sprites/nixon/throw_0.png",
+   "ax": 112,
+   "ay": 296
+  },
+  "throw": {
+   "src": "assets/sprites/nixon/throw.png",
+   "ax": 131,
+   "ay": 313
+  },
+  "thrown": {
+   "src": "assets/sprites/nixon/thrown.png",
+   "ax": 78,
+   "ay": 309
+  },
+  "sp_record": {
+   "src": "assets/sprites/nixon/sp_record.png",
+   "ax": 72,
+   "ay": 270
+  },
+  "sp_pingpong": {
+   "src": "assets/sprites/nixon/sp_pingpong.png",
+   "ax": 124,
+   "ay": 288
+  },
+  "special": {
+   "src": "assets/sprites/nixon/special.png",
+   "ax": 124,
+   "ay": 288
+  },
+  "sp_checkers": {
+   "src": "assets/sprites/nixon/sp_checkers.png",
+   "ax": 100,
+   "ay": 292
+  },
+  "item_recorder": {
+   "src": "assets/sprites/nixon/item_recorder.png",
+   "ax": 111,
+   "ay": 97
+  },
+  "item_paddle": {
+   "src": "assets/sprites/nixon/item_paddle.png",
+   "ax": 82,
+   "ay": 80
+  },
+  "item_dog": {
+   "src": "assets/sprites/nixon/item_dog.png",
+   "ax": 73,
+   "ay": 50
+  },
+  "super": {
+   "src": "assets/sprites/nixon/super.png",
+   "ax": 107,
+   "ay": 292
+  },
+  "crook": {
+   "src": "assets/sprites/nixon/crook.png",
+   "ax": 96,
+   "ay": 295
+  },
+  "fatality": {
+   "src": "assets/sprites/nixon/fatality.png",
+   "ax": 93,
+   "ay": 292
+  }
  }
 };

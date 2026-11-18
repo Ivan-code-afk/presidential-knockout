@@ -116,6 +116,23 @@ window.GAME_DATA = {
       fatality: "The opponent is buried under a mountain of broccoli.",
       ending: "Bush Sr skydives onto the White House lawn and declares a thousand-point victory.",
     },
+    nixon: {
+      name: "NIXON", full: "Richard Nixon",
+      speed: 0.98, power: 0.97, health: 1.0,
+      specials: {
+        n: { name: "PING-PONG DIPLOMACY", type: "pingpong", cd: 2.8, desc: "A fast ping-pong ball. Short cooldown" },
+        f: { name: "CHECKERS!", type: "checkers", cd: 3.6, desc: "Whistles for Checkers. The dog runs along the floor and hits low" },
+        d: { name: "ON THE RECORD", type: "record", cd: 7, desc: "Places a tape recorder. Whoever steps on it is stunned and loses SUPER meter to Nixon" },
+      },
+      passive: { name: "I AM NOT A CROOK", desc: "Once per round shrugs off a hit that would drop him below 15% health" },
+      superMove: { name: "18-MINUTE GAP", type: "erase" },
+      colors: { shirt: "#1e2448", pants: "#1e2448", skin: "#e0a27a", hair: "#3a2416", accent: "#b22234", shoes: "#111" },
+      look: {},
+      win: "Double V!",
+      lines: { intro: ["I am not a crook.", "Let me make this perfectly clear."], super: "Erase the tape!", win: ["Victory! Double V!", "You won't have me to kick around... yet."] },
+      fatality: "Checks the opponent into a very famous hotel. The room is bugged. No refunds.",
+      ending: "Nixon records the whole tournament on tape. Eighteen minutes are missing: exactly the ones where he lost.",
+    },
     swamp: {
       name: "UNCLE SWAMP", full: "Uncle Swamp", boss: true,
       speed: 1.0, power: 1.05, health: 1.1,
@@ -137,7 +154,7 @@ window.GAME_DATA = {
   },
 
   // Порядок на экране выбора. Босс открывается после прохождения аркады.
-  roster: ["bush", "clinton", "trump", "reagan", "obama", "bushsr", "swamp"],
+  roster: ["bush", "clinton", "trump", "reagan", "obama", "bushsr", "nixon", "swamp"],
 
   // bg — путь к фону арены (assets/arenas/*.webp). Пока null: рисуется фон-заглушка.
   arenas: {

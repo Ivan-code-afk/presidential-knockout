@@ -281,6 +281,7 @@ const SP_TIME = {
   spike: { start: 0.08, act: 0.22, rec: 0.35 },
   tape: { start: 0.18, act: 0.1, rec: 0.32 }, subpoena: { start: 0.16, act: 0.1, rec: 0.3 },
   lights: { start: 0.2, act: 0.1, rec: 0.32 }, broccoli: { start: 0.18, act: 0.1, rec: 0.34 }, lips: { start: 0.25, act: 0.1, rec: 0.35 },
+  pingpong: { start: 0.12, act: 0.1, rec: 0.26 }, checkers: { start: 0.2, act: 0.1, rec: 0.32 }, record: { start: 0.22, act: 0.1, rec: 0.3 },
 };
 const SLOTS = ["n", "f", "d"];
 
@@ -324,7 +325,7 @@ function resetFighter(f) {
     hp: f.maxHp, shownHp: f.maxHp, st: "idle", stT: 0, atk: null, stun: 0, cds: { n: 0, f: 0, d: 0 }, combo: 0, comboT: 0,
     inv: 0, reflectT: 0, flash: 0, walkPh: 0, airAtk: false, crouchBlock: false, crouchHurt: false, alpha: 1,
     armor: 0, buffT: 0, deciderT: 0, juggle: 0, jumps: 0, recent: [], tyga: false, lastPunchT: -9, ghost: false,
-    vpUsed: false, slowT: 0, hidden: false, chute: null,
+    vpUsed: false, slowT: 0, hidden: false, chute: null, crookUsed: false, crookT: 0, dmgLog: [],
   });
   f.ai = { t: 0.4, hold: {} };
 }
@@ -488,6 +489,7 @@ function updateFighter(f, o, dt) {
   if (f.ctl.p.punch) f.lastPunchT = G.time;
   f.shownHp += (f.hp - f.shownHp) * Math.min(1, dt * 3);
   if (f.slowT > 0) f.slowT -= dt;
+  if (f.crookT > 0) f.crookT -= dt;
   if (f.chute && (f.chute.dead || !F.proj.includes(f.chute))) {
     f.x = clamp(f.chute.x, WALL_L, WALL_R); f.y = FLOOR; f.vy = 0; f.onGround = true;
     f.hidden = false; f.chute = null; f.inv = 0.3; spark(f.x, f.y - 60, "gold");
@@ -647,6 +649,13 @@ function hit(att, def, h) {
     if (def.hp <= 0 && F.phase === "fight") { setSt(def, "down"); def.vy = -700; def.vx = dir * 380; def.onGround = false; onKO(att, def); }
     return true;
   }
+  // Никсон: «I am not a crook» — раз за раунд отмахивается от удара
+  if (def.id === "nixon" && !def.crookUsed && def.hp - dmg < def.maxHp * 0.15 && !F.opts.training) {
+    def.crookUsed = true; def.crookT = 0.7; def.atk = null; setSt(def, "idle"); def.vx = dir * 120;
+    popText("I AM NOT A CROOK!", def.x, def.y - 300, GOLD, 1.2, 28); spark(def.x, def.y - 160, "gold"); SFX.block(); F.hitstop = 0.08;
+    return false;
+  }
+  if (def.dmgLog) def.dmgLog.push({ t: G.time, d: dmg });
   def.hp = Math.max(F.opts.training ? 1 : 0, def.hp - dmg);
   def.flash = 0.12;
   att.combo++; att.comboT = 1.1;
@@ -666,6 +675,7 @@ function hit(att, def, h) {
     def.stun = h.stun || 0.3;
     def.vx = dir * (h.push || 160) * kb;
   }
+  if (h.steal && def.hp > 0) { const t = Math.min(def.meter, h.steal); def.meter -= t; att.meter = Math.min(100, att.meter + t); popText("BUGGED!", def.x, def.y - 290, "#ff9a9a", 0.8, 26); }
   if (h.slow && def.hp > 0) { def.slowT = h.slow; popText("RED TAPE!", def.x, def.y - 290, "#ff6b6b", 0.8, 26); }
   if (h.pull && def.hp > 0) { def.vx = -dir * 1100; def.stun = 0.6; popText("GET OVER HERE!", att.x, att.y - 290, GOLD, 0.8); }
   spark(h.x ?? def.x, h.y ?? def.y - 150, "hit");
@@ -789,6 +799,12 @@ function fireSpecial(f, o, type) {
         spark(o.x, o.y - 160, "gold");
       }
       break;
+    case "pingpong": addProj(f, { kind: "pong", x, y: f.y - 175, vx: f.face * 980, w: 28, h: 28, dmg: 7, hgt: "high", stun: 0.3, push: 120, life: 1.4, meter: 6 }); break;
+    case "checkers": addProj(f, { kind: "dog", x, y: f.y - 32, vx: f.face * 600, w: 90, h: 64, dmg: 8, hgt: "low", stun: 0.5, push: 200, life: 2.2, meter: 8 }); break;
+    case "record":
+      for (const q of F.proj) if (q.kind === "recorder" && q.owner === f) q.dead = true;
+      addProj(f, { kind: "recorder", x: clamp(f.x + f.face * 150, WALL_L, WALL_R), y: f.y - 40, w: 90, h: 80, dmg: 5, hgt: "low", stun: 0.6, push: 60, life: 5, steal: 15, fixed: true, meter: 0 });
+      break;
     case "tape": addProj(f, { kind: "tape", x, y: f.y - 130, vx: f.face * 820, w: 80, h: 70, dmg: 6, hgt: "mid", stun: 0.35, push: 80, life: 0.7, slow: 1.8 }); break;
     case "decider": f.deciderT = 2.2; popText("I'M THE DECIDER!", f.x, f.y - 330, GOLD, 1.2, 26); break;
     case "yeswecan": f.buffT = 5; popText("YES WE CAN!", f.x, f.y - 330, "#9fe8ff", 1.2, 30); spark(f.x, f.y - 150, "tv"); break;
@@ -822,6 +838,16 @@ function updateSuper(f, o, dt) {
         f.hidden = true; f.inv = 2.2;
         f.chute = addProj(f, { kind: "chute", x: o.x, y: -220, vy: 620, w: 120, h: 120, dmg: 22, hgt: "over", knock: true, life: 2.0, fall: true, meter: 0 });
         spark(f.x, f.y - 150, "gold");
+        break;
+      }
+      case "erase": {
+        // «Стереть плёнку»: Никсон возвращает урон последних 8 секунд, соперник замирает
+        const lost = (f.dmgLog || []).filter((e) => G.time - e.t < 6).reduce((s, e) => s + e.d, 0);
+        const heal = Math.min(lost * 0.5, f.maxHp * 0.1);
+        f.hp = Math.min(f.maxHp, f.hp + heal); f.dmgLog = [];
+        if (heal > 1) popText(`+${Math.round(heal)} ERASED`, f.x, f.y - 300, "#7dff9a", 1.2, 28);
+        F.staticT = 0.7; F.flashScreen = 0.25;
+        if (o.st !== "ko" && o.st !== "down" && o.inv <= 0 && !(o.atk && o.atk.kind === "super")) { o.atk = null; setSt(o, "hurt"); o.stun = 0.5; o.vx = 0; popText("18 MINUTES MISSING", o.x, o.y - 300, "#ff9a9a", 1.2, 24); }
         break;
       }
       case "shutdown":
@@ -878,7 +904,7 @@ function updateProj(dt) {
   }
   // встречные снаряды гасят друг друга
   for (const a of F.proj) for (const b of F.proj) {
-    if (a !== b && !a.dead && !b.dead && a.owner !== b.owner && !a.fall && !b.fall && overlap(a, { x: b.x - b.w / 2, y: b.y - b.h / 2, w: b.w, h: b.h })) {
+    if (a !== b && !a.dead && !b.dead && a.owner !== b.owner && !a.fall && !b.fall && !a.fixed && !b.fixed && overlap(a, { x: b.x - b.w / 2, y: b.y - b.h / 2, w: b.w, h: b.h })) {
       a.dead = b.dead = true; spark((a.x + b.x) / 2, (a.y + b.y) / 2, "gold"); SFX.block();
     }
   }
@@ -930,8 +956,11 @@ const AI_USE = {
   lights: (d) => (d > 240 ? 0.42 : 0),
   broccoli: (d) => (d > 260 && d < 640 ? 0.32 : 0),
   lips: (d, o) => (d < 340 && o.meter > 35 ? 0.5 : 0),
+  pingpong: (d) => (d > 200 ? 0.45 : 0),
+  checkers: (d) => (d > 220 && d < 700 ? 0.35 : 0),
+  record: (d, o, oAtk, f) => (d > 160 && d < 420 && !(F.proj || []).some((p) => p.kind === "recorder" && p.owner === f) ? 0.25 : 0),
 };
-const COMBO_TYPES = ["brush", "fired", "bigleague", "fastbreak", "notes", "ball", "lasso", "tv", "deal", "subpoena", "tape"];
+const COMBO_TYPES = ["pingpong", "brush", "fired", "bigleague", "fastbreak", "notes", "ball", "lasso", "tv", "deal", "subpoena", "tape"];
 function aiUpdate(f, o, dt) {
   const c = f.ctl, L = LV[f.level], ai = f.ai;
   for (const a of ACTIONS) c.p[a] = false;
@@ -981,7 +1010,7 @@ function aiUpdate(f, o, dt) {
   // бросок против блокирующего
   if (dist < 100 && (o.st === "block" || (o.st === "idle" && Math.random() < 0.3)) && Math.random() < 0.25 + L.aggr * 0.3) { c.h[fwd] = true; press("punch"); return; }
   // спецприёмы: выбираем по дистанции
-  const opts = SLOTS.filter((s) => f.d.specials[s] && f.cds[s] <= 0).map((s) => ({ s, w: (AI_USE[f.d.specials[s].type] || (() => 0))(dist, o, oAtk) }));
+  const opts = SLOTS.filter((s) => f.d.specials[s] && f.cds[s] <= 0).map((s) => ({ s, w: (AI_USE[f.d.specials[s].type] || (() => 0))(dist, o, oAtk, f) }));
   for (const op of shuffle(opts)) if (Math.random() < op.w) { useSlot(op.s); return; }
   if (dist > 150) {
     if (Math.random() < L.aggr) {
@@ -1182,6 +1211,7 @@ function updateFight(dt) {
   updateAssists(dt);
   updateHazards(dt);
   if (F.darkT > 0) F.darkT -= dt;
+  if (F.staticT > 0) F.staticT -= dt;
   if (F.meterMul) F.p.forEach((f, i) => { const d = f.meter - m0[i]; if (d > 0) f.meter = Math.min(100, f.meter + d * (F.meterMul - 1)); });
   for (const p of F.parts) { p.t += dt; p.x += p.vx * dt; p.y += p.vy * dt; p.vy += 900 * dt; }
   F.parts = F.parts.filter((p) => p.t < p.life);
@@ -1714,6 +1744,7 @@ function itemSpr(p, name, w) {
 function poseOf(f) {
   const p = { key: "idle", cr: 0, lean: 0, arms: "guard", legs: "stand", lying: 0, bob: Math.sin(G.time * 4 + f.side) * 2 };
   const a = f.atk;
+  if (f.crookT > 0 && f.st === "idle") { p.key = "crook"; p.arms = "up"; return p; }
   switch (f.st) {
     case "walk": p.key = "walk_" + (1 + (Math.floor(f.walkPh * 4) % 4)); p.legs = "walk"; break;
     case "crouch": p.key = "crouch"; p.cr = 1; break;
@@ -1752,6 +1783,8 @@ function poseOf(f) {
         else if (a.type === "lights") p.arms = "up";
         else if (a.type === "broccoli") p.arms = inStart ? "wind" : "point";
         else if (a.type === "lips") p.arms = "guard";
+        else if (a.type === "pingpong" || a.type === "checkers") p.arms = inStart ? "wind" : "point";
+        else if (a.type === "record") { p.arms = "punch"; p.lean = 0.3; }
         else p.arms = "cast";
       } else if (a.kind === "super") {
         p.key = "super";
@@ -2321,6 +2354,20 @@ function drawProj(p) {
       for (let i = 0; i < 4; i++) { ctx.beginPath(); ctx.ellipse(-dir * i * 26, 0, 20 + i * 10, 140 - i * 14, 0, dir > 0 ? -1.3 : 1.8, dir > 0 ? 1.3 : 4.5); ctx.stroke(); }
       label("!!!", 0, -160, 40, "#fff");
       break;
+    case "pong":
+      ctx.fillStyle = "#fff"; ctx.beginPath(); ctx.arc(0, Math.sin(p.t * 30) * 6, 11, 0, Math.PI * 2); ctx.fill();
+      ctx.strokeStyle = "#999"; ctx.lineWidth = 2; ctx.stroke();
+      break;
+    case "dog":
+      ctx.scale(dir, 1); ctx.translate(0, Math.abs(Math.sin(p.t * 18)) * -6);
+      if (itemSpr(p, "dog", 110)) break;
+      ctx.fillStyle = "#fff"; ctx.fillRect(-40, -20, 70, 34); ctx.fillStyle = "#222"; ctx.fillRect(18, -34, 26, 26);
+      break;
+    case "recorder":
+      ctx.globalAlpha = p.life - p.t < 1 ? 0.5 + 0.5 * Math.sin(p.t * 30) : 1;
+      if (itemSpr(p, "recorder", 100)) { ctx.fillStyle = "#ff3b3b"; if (Math.sin(p.t * 8) > 0) { ctx.beginPath(); ctx.arc(40, -40, 7, 0, Math.PI * 2); ctx.fill(); } break; }
+      ctx.fillStyle = "#555"; ctx.fillRect(-45, -40, 90, 80);
+      break;
     case "hat":
       ctx.rotate(p.t * 14);
       if (itemSpr(p, "hat", 80)) break;
@@ -2462,6 +2509,11 @@ function drawFight() {
   ctx.save();
   if (F.shake > 0) ctx.translate(rnd(-F.shake, F.shake), rnd(-F.shake, F.shake));
   drawArena(F.arena, F.altBg);
+  if (F.staticT > 0) {
+    ctx.save(); ctx.globalAlpha = Math.min(0.55, F.staticT);
+    for (let i = 0; i < 260; i++) { const g = (Math.random() * 255) | 0; ctx.fillStyle = `rgb(${g},${g},${g})`; ctx.fillRect(Math.random() * W, Math.random() * H, rnd(4, 40), 3); }
+    ctx.restore();
+  }
   if (F.darkT > 0) {
     ctx.fillStyle = `rgba(0,0,0,${Math.min(0.72, F.darkT * 0.6) * (Math.random() < 0.06 ? 0.4 : 1)})`; ctx.fillRect(0, 0, W, H);
     ctx.font = `28px ${FONT}`; ctx.textAlign = "center"; ctx.fillStyle = "rgba(255,80,80,.85)"; ctx.fillText("CLOSED", W / 2, 180);
