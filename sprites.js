@@ -1214,6 +1214,16 @@ window.SPRITES = {
    "ax": 136,
    "ay": 236
   },
+  "cpunch": {
+   "src": "assets/sprites/washington/cpunch.png",
+   "ax": 90,
+   "ay": 227
+  },
+  "ckick": {
+   "src": "assets/sprites/washington/ckick.png",
+   "ax": 90,
+   "ay": 227
+  },
   "super_0": {
    "src": "assets/sprites/washington/super_0.png",
    "ax": 100,
