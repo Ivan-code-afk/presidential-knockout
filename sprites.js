@@ -357,7 +357,7 @@ window.SPRITES = {
   "sp_jog_2": {
    "src": "assets/sprites/clinton/sp_jog_2.png",
    "ax": 109,
-   "ay": 272
+   "ay": 273
   },
   "sp_townhall": {
    "src": "assets/sprites/clinton/sp_townhall.png",
@@ -676,7 +676,7 @@ window.SPRITES = {
   "ko": {
    "src": "assets/sprites/obama/ko.png",
    "ax": 162,
-   "ay": 66
+   "ay": 67
   },
   "getup": {
    "src": "assets/sprites/obama/getup.png",
@@ -937,8 +937,8 @@ window.SPRITES = {
   },
   "item_light": {
    "src": "assets/sprites/bushsr/item_light.png",
-   "ax": 52,
-   "ay": 53
+   "ax": 72,
+   "ay": 71
   },
   "super": {
    "src": "assets/sprites/bushsr/super.png",
@@ -1125,7 +1125,7 @@ window.SPRITES = {
   "item_satellite": {
    "src": "assets/sprites/reagan/item_satellite.png",
    "ax": 109,
-   "ay": 67
+   "ay": 68
   },
   "fatality": {
    "src": "assets/sprites/reagan/fatality.png",
@@ -1146,6 +1146,188 @@ window.SPRITES = {
    "src": "assets/sprites/reagan/item_hat.png",
    "ax": 43,
    "ay": 27
+  }
+ },
+ "washington": {
+  "idle": {
+   "src": "assets/sprites/washington/idle.png",
+   "ax": 82,
+   "ay": 281
+  },
+  "crouch": {
+   "src": "assets/sprites/washington/crouch.png",
+   "ax": 77,
+   "ay": 205
+  },
+  "jump": {
+   "src": "assets/sprites/washington/jump.png",
+   "ax": 68,
+   "ay": 213
+  },
+  "walk_1": {
+   "src": "assets/sprites/washington/walk_1.png",
+   "ax": 99,
+   "ay": 281
+  },
+  "walk_2": {
+   "src": "assets/sprites/washington/walk_2.png",
+   "ax": 55,
+   "ay": 282
+  },
+  "walk_3": {
+   "src": "assets/sprites/washington/walk_3.png",
+   "ax": 96,
+   "ay": 280
+  },
+  "walk_4": {
+   "src": "assets/sprites/washington/walk_4.png",
+   "ax": 46,
+   "ay": 282
+  },
+  "punch_0": {
+   "src": "assets/sprites/washington/punch_0.png",
+   "ax": 80,
+   "ay": 281
+  },
+  "punch": {
+   "src": "assets/sprites/washington/punch.png",
+   "ax": 84,
+   "ay": 281
+  },
+  "hook": {
+   "src": "assets/sprites/washington/hook.png",
+   "ax": 85,
+   "ay": 281
+  },
+  "counter": {
+   "src": "assets/sprites/washington/counter.png",
+   "ax": 101,
+   "ay": 284
+  },
+  "kick": {
+   "src": "assets/sprites/washington/kick.png",
+   "ax": 62,
+   "ay": 281
+  },
+  "akick": {
+   "src": "assets/sprites/washington/akick.png",
+   "ax": 136,
+   "ay": 236
+  },
+  "super_0": {
+   "src": "assets/sprites/washington/super_0.png",
+   "ax": 100,
+   "ay": 284
+  },
+  "block": {
+   "src": "assets/sprites/washington/block.png",
+   "ax": 85,
+   "ay": 281
+  },
+  "crouch_block": {
+   "src": "assets/sprites/washington/crouch_block.png",
+   "ax": 82,
+   "ay": 234
+  },
+  "hurt": {
+   "src": "assets/sprites/washington/hurt.png",
+   "ax": 113,
+   "ay": 285
+  },
+  "fall": {
+   "src": "assets/sprites/washington/fall.png",
+   "ax": 118,
+   "ay": 183
+  },
+  "ko": {
+   "src": "assets/sprites/washington/ko.png",
+   "ax": 135,
+   "ay": 83
+  },
+  "getup": {
+   "src": "assets/sprites/washington/getup.png",
+   "ax": 80,
+   "ay": 166
+  },
+  "win": {
+   "src": "assets/sprites/washington/win.png",
+   "ax": 101,
+   "ay": 292
+  },
+  "lose": {
+   "src": "assets/sprites/washington/lose.png",
+   "ax": 84,
+   "ay": 226
+  },
+  "portrait": {
+   "src": "assets/sprites/washington/portrait.png",
+   "ax": 0,
+   "ay": 0
+  },
+  "throw_0": {
+   "src": "assets/sprites/washington/throw_0.png",
+   "ax": 103,
+   "ay": 294
+  },
+  "throw": {
+   "src": "assets/sprites/washington/throw.png",
+   "ax": 124,
+   "ay": 305
+  },
+  "thrown": {
+   "src": "assets/sprites/washington/thrown.png",
+   "ax": 72,
+   "ay": 309
+  },
+  "sp_axe": {
+   "src": "assets/sprites/washington/sp_axe.png",
+   "ax": 90,
+   "ay": 276
+  },
+  "special": {
+   "src": "assets/sprites/washington/special.png",
+   "ax": 90,
+   "ay": 276
+  },
+  "sp_delaware": {
+   "src": "assets/sprites/washington/sp_delaware.png",
+   "ax": 178,
+   "ay": 293
+  },
+  "sp_forge": {
+   "src": "assets/sprites/washington/sp_forge.png",
+   "ax": 80,
+   "ay": 292
+  },
+  "item_axe": {
+   "src": "assets/sprites/washington/item_axe.png",
+   "ax": 68,
+   "ay": 63
+  },
+  "item_boat": {
+   "src": "assets/sprites/washington/item_boat.png",
+   "ax": 146,
+   "ay": 52
+  },
+  "item_drummer": {
+   "src": "assets/sprites/washington/item_drummer.png",
+   "ax": 45,
+   "ay": 69
+  },
+  "super": {
+   "src": "assets/sprites/washington/super.png",
+   "ax": 100,
+   "ay": 284
+  },
+  "fatality": {
+   "src": "assets/sprites/washington/fatality.png",
+   "ax": 80,
+   "ay": 292
+  },
+  "item_coin": {
+   "src": "assets/sprites/washington/item_coin.png",
+   "ax": 125,
+   "ay": 127
   }
  },
  "nixon": {

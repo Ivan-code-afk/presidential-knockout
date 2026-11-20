@@ -72,6 +72,11 @@ OWN = {
         "item_wall": ("09", 0, "item"), "item_satellite": ("09", 1, "item"), "fatality": ("09", 2, "feet"),
         "sp_hat": ("12", 0, "feet"), "sp_beans": ("12", 2, "feet"), "item_hat": ("12", 3, "item"),
     },
+    "washington": {
+        "sp_axe": ("08", 0, "feet"), "special": ("08", 0, "feet"), "sp_delaware": ("08", 1, "feet"), "sp_forge": ("08", 2, "feet"),
+        "item_axe": ("09", 0, "item"), "item_boat": ("09", 1, "item"), "item_drummer": ("09", 2, "item"),
+        "super": ("12", 0, "feet"), "super_0": ("12", 0, "feet"), "fatality": ("12", 1, "feet"), "item_coin": ("12", 2, "item"),
+    },
     "nixon": {
         "sp_record": ("08", 0, "feet"), "sp_pingpong": ("08", 1, "feet"), "special": ("08", 1, "feet"), "sp_checkers": ("08", 2, "feet"),
         "item_recorder": ("09", 0, "item"), "item_paddle": ("09", 1, "item"), "item_dog": ("09", 3, "item"),
@@ -87,13 +92,14 @@ for _fid, _own in OWN.items():
 # если в листе есть особая фигура для масштаба — можно переопределить для бойца
 REF_OVERRIDE = {"bush": {"00": (0, 1.08)}, "clinton": {"12": (2, 1.02), "10": (0, 0.93), "08": (1, 1.04), "09": (2, 1.06)},
                 "trump": {"10": "=06", "08": (0, 1.02), "09": (2, 1.02), "12": (1, 0.98)},
+                "washington": {"08": (2, 1.04), "12": (1, 1.04), "10": (0, 1.04), "09": "=08"},
                 "nixon": {"10": (0, 1.06), "12": (1, 1.05), "08": (2, 1.04), "09": "=08"},
                 "reagan": {"12": (2, 1.04), "10": (0, 1.10), "09": (2, 1.10)},
                 "obama": {"10": "=06", "08": (2, 1.08), "09": (2, 1.08), "12": (1, 1.3)},
                 "bushsr": {"10": (1, 0.8), "08": (2, 1.0), "09": "=06", "12": (2, 1.06)}}
 
-
 def mask_of(a):
+    a = a.astype(np.int16)
     r, g, b = a[..., 0], a[..., 1], a[..., 2]
     bg = (g > 140) & (g - r > 70) & (g - b > 70)
     return ~bg

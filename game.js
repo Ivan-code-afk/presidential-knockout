@@ -281,6 +281,7 @@ const SP_TIME = {
   spike: { start: 0.08, act: 0.22, rec: 0.35 },
   tape: { start: 0.18, act: 0.1, rec: 0.32 }, subpoena: { start: 0.16, act: 0.1, rec: 0.3 },
   lights: { start: 0.2, act: 0.1, rec: 0.32 }, broccoli: { start: 0.18, act: 0.1, rec: 0.34 }, lips: { start: 0.25, act: 0.1, rec: 0.35 },
+  axe: { start: 0.2, act: 0.1, rec: 0.3 }, delaware: { start: 0.25, act: 0.1, rec: 0.35 }, forge: { start: 0.08, act: 1.1, rec: 0.2 },
   pingpong: { start: 0.12, act: 0.1, rec: 0.26 }, checkers: { start: 0.2, act: 0.1, rec: 0.32 }, record: { start: 0.22, act: 0.1, rec: 0.3 },
 };
 const SLOTS = ["n", "f", "d"];
@@ -325,7 +326,7 @@ function resetFighter(f) {
     hp: f.maxHp, shownHp: f.maxHp, st: "idle", stT: 0, atk: null, stun: 0, cds: { n: 0, f: 0, d: 0 }, combo: 0, comboT: 0,
     inv: 0, reflectT: 0, flash: 0, walkPh: 0, airAtk: false, crouchBlock: false, crouchHurt: false, alpha: 1,
     armor: 0, buffT: 0, deciderT: 0, juggle: 0, jumps: 0, recent: [], tyga: false, lastPunchT: -9, ghost: false,
-    vpUsed: false, slowT: 0, hidden: false, chute: null, crookUsed: false, crookT: 0, dmgLog: [],
+    vpUsed: false, slowT: 0, hidden: false, chute: null, crookUsed: false, crookT: 0, dmgLog: [], firstHit: false,
   });
   f.ai = { t: 0.4, hold: {} };
 }
@@ -379,6 +380,7 @@ function startSpecial(f, slot) {
   f.cds[slot] = sp.cd;
   startAtk(f, "special", { type: sp.type, slot, crouch: false });
   f.atk.m = SP_TIME[sp.type] || { start: 0.16, act: 0.1, rec: 0.3 };
+  if (sp.type === "forge") { f.armor = 3; popText("VALLEY FORGE", f.x, f.y - 300, "#cfe8ff", 0.8, 24); }
   if (sp.type === "bigleague") { f.armor = 1; popText("ARMOR", f.x, f.y - 250, "#ffb04a", 0.6, 22); }
   noteMove(f, "sp_" + sp.type);
   popText(sp.name, f.x, f.y - 290, WHITE, 0.9);
@@ -637,6 +639,7 @@ function hit(att, def, h) {
   let dmg = h.dmg * powerOf(att) * Math.max(0.5, 1 - att.combo * 0.1);
   if (F.debate && h.normal) dmg *= 0.3;
   if (def.id === "bushsr" && h.owner) dmg *= 0.85; // KINDER, GENTLER
+  if (att.id === "washington" && !att.firstHit) { att.firstHit = true; dmg *= 1.5; popText("FIRST IN WAR!", att.x, att.y - 300, GOLD, 0.9, 26); }
   if (att.tyga) { dmg *= 1.6; att.tyga = false; popText("THERE YOU GO AGAIN!", att.x, att.y - 300, GOLD, 1.0, 26); }
   // броня: выдерживает удар без остановки
   if (def.armor > 0 && !h.throw) {
@@ -799,6 +802,9 @@ function fireSpecial(f, o, type) {
         spark(o.x, o.y - 160, "gold");
       }
       break;
+    case "axe": addProj(f, { kind: "axe", x, y: f.y - 210, vx: f.face * 720, vy: -420, g: 1100, w: 50, h: 50, dmg: 9, hgt: "high", stun: 0.45, push: 160, life: 2.5 }); break;
+    case "delaware": addProj(f, { kind: "boat", x: f.x + f.face * 60, y: f.y - 36, vx: f.face * 520, w: 190, h: 64, dmg: 11, hgt: "low", knock: true, push: 300, life: 2.6, meter: 8 }); break;
+    case "forge": break;
     case "pingpong": addProj(f, { kind: "pong", x, y: f.y - 175, vx: f.face * 980, w: 28, h: 28, dmg: 7, hgt: "high", stun: 0.3, push: 120, life: 1.4, meter: 6 }); break;
     case "checkers": addProj(f, { kind: "dog", x, y: f.y - 32, vx: f.face * 600, w: 90, h: 64, dmg: 8, hgt: "low", stun: 0.5, push: 200, life: 2.2, meter: 8 }); break;
     case "record":
@@ -840,6 +846,10 @@ function updateSuper(f, o, dt) {
         spark(f.x, f.y - 150, "gold");
         break;
       }
+      case "continental":
+        for (let i = 0; i < 3; i++) addProj(f, { kind: "drummer", x: f.x - f.face * (i * 120 - 40), y: f.y - 90, vx: f.face * 560, w: 70, h: 180, dmg: 8, hgt: "mid", stun: 0.5, push: 140, life: 2.6 });
+        F.shake = 10;
+        break;
       case "erase": {
         // «Стереть плёнку»: Никсон возвращает урон последних 8 секунд, соперник замирает
         const lost = (f.dmgLog || []).filter((e) => G.time - e.t < 6).reduce((s, e) => s + e.d, 0);
@@ -956,6 +966,9 @@ const AI_USE = {
   lights: (d) => (d > 240 ? 0.42 : 0),
   broccoli: (d) => (d > 260 && d < 640 ? 0.32 : 0),
   lips: (d, o) => (d < 340 && o.meter > 35 ? 0.5 : 0),
+  axe: (d) => (d > 220 ? 0.4 : 0),
+  delaware: (d) => (d > 260 && d < 800 ? 0.3 : 0),
+  forge: (d, o, oAtk) => (d < 320 && oAtk ? 0.35 : 0),
   pingpong: (d) => (d > 200 ? 0.45 : 0),
   checkers: (d) => (d > 220 && d < 700 ? 0.35 : 0),
   record: (d, o, oAtk, f) => (d > 160 && d < 420 && !(F.proj || []).some((p) => p.kind === "recorder" && p.owner === f) ? 0.25 : 0),
@@ -1783,6 +1796,8 @@ function poseOf(f) {
         else if (a.type === "lights") p.arms = "up";
         else if (a.type === "broccoli") p.arms = inStart ? "wind" : "point";
         else if (a.type === "lips") p.arms = "guard";
+        else if (a.type === "forge") { p.arms = "guard"; }
+        else if (a.type === "axe" || a.type === "delaware") p.arms = inStart ? "wind" : "point";
         else if (a.type === "pingpong" || a.type === "checkers") p.arms = inStart ? "wind" : "point";
         else if (a.type === "record") { p.arms = "punch"; p.lean = 0.3; }
         else p.arms = "cast";
@@ -2354,6 +2369,21 @@ function drawProj(p) {
       for (let i = 0; i < 4; i++) { ctx.beginPath(); ctx.ellipse(-dir * i * 26, 0, 20 + i * 10, 140 - i * 14, 0, dir > 0 ? -1.3 : 1.8, dir > 0 ? 1.3 : 4.5); ctx.stroke(); }
       label("!!!", 0, -160, 40, "#fff");
       break;
+    case "axe":
+      ctx.rotate(p.t * 16 * dir);
+      if (itemSpr(p, "axe", 70)) break;
+      ctx.fillStyle = "#8a5a2b"; ctx.fillRect(-4, -25, 8, 50); ctx.fillStyle = "#ccc"; ctx.fillRect(-18, -25, 22, 16);
+      break;
+    case "boat":
+      ctx.scale(dir, 1); ctx.translate(0, Math.sin(p.t * 10) * 3);
+      if (itemSpr(p, "boat", 230)) break;
+      ctx.fillStyle = "#8a5a2b"; ctx.fillRect(-100, -20, 200, 40);
+      break;
+    case "drummer":
+      ctx.scale(dir, 1); ctx.translate(0, -Math.abs(Math.sin(p.t * 14)) * 5);
+      if (itemSpr(p, "drummer", 120)) break;
+      ctx.fillStyle = "#1f3a78"; ctx.fillRect(-25, -80, 50, 160);
+      break;
     case "pong":
       ctx.fillStyle = "#fff"; ctx.beginPath(); ctx.arc(0, Math.sin(p.t * 30) * 6, 11, 0, Math.PI * 2); ctx.fill();
       ctx.strokeStyle = "#999"; ctx.lineWidth = 2; ctx.stroke();
@@ -2622,6 +2652,7 @@ function drawFatality() {
   ctx.restore();
   if (t > 1.4 && t < 2.6) for (let i = 0; i < 3; i++) spark(l.x + rnd(-40, 40), l.y - rnd(40, 220), w.id === "swamp" ? "cash" : "gold");
   if (w.id === "reagan") reaganSat(l, t);
+  if (w.id === "washington") bigPenny(l, t);
   bigText(D.texts.fatality, 230, 90, RED);
   ctx.font = `26px ${FONT}`; ctx.textAlign = "center"; ctx.fillStyle = WHITE;
   wrapText(w.d.fatality, W / 2, 300, 900, 34);
@@ -2643,6 +2674,17 @@ function reaganSat(l, t) {
       ctx.fillStyle = BEAN_COLORS[i % BEAN_COLORS.length]; ctx.beginPath(); ctx.ellipse(x, yy, 9, 6, (i % 5) * 0.6, 0, Math.PI * 2); ctx.fill();
     }
   }
+}
+// фаталити Вашингтона: огромная медная монета падает на проигравшего
+function bigPenny(l, t) {
+  if (t < 0.9) return;
+  const im = IMG["spr_washington_item_coin"], k = Math.min(1, (t - 0.9) / 0.35), w = 260;
+  const h = im ? im.height * w / im.width : w, y = -h + k * (l.y + 10);
+  if (k >= 1 && t < 1.4) F.shake = Math.max(F.shake, 12);
+  ctx.save(); ctx.imageSmoothingEnabled = true;
+  if (im) ctx.drawImage(im, l.x - w / 2, y - h, w, h);
+  else { ctx.fillStyle = "#b87333"; ctx.beginPath(); ctx.ellipse(l.x, y - h / 2, w / 2, h / 2, 0, 0, Math.PI * 2); ctx.fill(); }
+  ctx.restore();
 }
 function drawDummyOrSprite(f, pose) {
   const set = SPR[f.id], img = set && set.hurt && IMG[`spr_${f.id}_hurt`];

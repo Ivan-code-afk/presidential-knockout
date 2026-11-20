@@ -133,6 +133,23 @@ window.GAME_DATA = {
       fatality: "Checks the opponent into a very famous hotel. The room is bugged. No refunds.",
       ending: "Nixon records the whole tournament on tape. Eighteen minutes are missing: exactly the ones where he lost.",
     },
+    washington: {
+      name: "WASHINGTON", full: "George Washington",
+      speed: 1.0, power: 1.0, health: 1.0,
+      specials: {
+        n: { name: "CHERRY AXE", type: "axe", cd: 3, desc: "Throws the cherry-tree axe in an arc" },
+        f: { name: "CROSSING THE DELAWARE", type: "delaware", cd: 4.5, desc: "An icy rowboat slides across the floor. Hits low and knocks down" },
+        d: { name: "VALLEY FORGE", type: "forge", cd: 7, desc: "Stands firm in a winter cloak: shrugs off up to 3 hits" },
+      },
+      passive: { name: "FIRST IN WAR", desc: "The first hit he lands each round deals +50% damage" },
+      superMove: { name: "CONTINENTAL ARMY", type: "continental" },
+      colors: { shirt: "#1f3a78", pants: "#f2ece0", skin: "#f0c09a", hair: "#f4f4f4", accent: "#d9b77a", shoes: "#1a1a1a" },
+      look: {},
+      win: "Liberty prevails!",
+      lines: { intro: ["I cannot tell a lie: you're going down.", "First in war, first in this fight."], super: "Continental Army, advance!", win: ["Liberty prevails!", "Two terms is plenty. One fight is enough."] },
+      fatality: "Drops a giant penny on the opponent. Change you can't spend.",
+      ending: "Washington wins the tournament, then politely refuses a third one. The trophy goes on a quarter.",
+    },
     swamp: {
       name: "UNCLE SWAMP", full: "Uncle Swamp", boss: true,
       speed: 1.0, power: 1.05, health: 1.1,
@@ -154,7 +171,7 @@ window.GAME_DATA = {
   },
 
   // Порядок на экране выбора. Босс открывается после прохождения аркады.
-  roster: ["bush", "clinton", "trump", "reagan", "obama", "bushsr", "nixon", "swamp"],
+  roster: ["bush", "clinton", "trump", "reagan", "obama", "bushsr", "nixon", "washington", "swamp"],
 
   // bg — путь к фону арены (assets/arenas/*.webp). Пока null: рисуется фон-заглушка.
   arenas: {
